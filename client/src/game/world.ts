@@ -5,10 +5,10 @@ import { scene } from '../engine/scene';
 export const worldCollidables: THREE.Object3D[] = [];
 
 export const initWorld = () => {
-  scene.background = new THREE.Color(0x0a0a1a);
-  scene.fog = new THREE.FogExp2(0x0a0a1a, 0.015);
+  scene.background = new THREE.Color(0xf0f4f8); // 맑고 밝은 배경색
+  scene.fog = new THREE.FogExp2(0xf0f4f8, 0.012);
 
-  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x111122, 0.5);
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0xddeeff, 0.8);
   scene.add(hemiLight);
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
@@ -22,41 +22,43 @@ export const initWorld = () => {
   dirLight.shadow.camera.right = 100;
   dirLight.shadow.camera.top = 100;
   dirLight.shadow.camera.bottom = -100;
-  dirLight.shadow.bias = -0.0005;
+  dirLight.shadow.bias = -0.001;
   scene.add(dirLight);
 
   // 바닥
   const floorSize = 400;
   const floorGeometry = new THREE.PlaneGeometry(floorSize, floorSize);
   const floorMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x11111b,
-    roughness: 0.1,
-    metalness: 0.1
+    color: 0xffffff, // 깔끔한 흰색 바닥
+    roughness: 0.2,
+    metalness: 0
   });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // 네온 그리드
-  const gridHelper = new THREE.GridHelper(floorSize, 100, 0x00f0ff, 0x0f3460);
+  // 부드러운 그리드
+  const gridHelper = new THREE.GridHelper(floorSize, 100, 0xcccccc, 0xeeeeee);
   gridHelper.position.y = 0.05;
-  (gridHelper.material as THREE.LineBasicMaterial).opacity = 0.3;
+  (gridHelper.material as THREE.LineBasicMaterial).opacity = 0.2;
   (gridHelper.material as THREE.LineBasicMaterial).transparent = true;
   scene.add(gridHelper);
 
-  // 장애물 (충돌 가능한 박스들) → worldCollidables에 등록
-  const wallMat = new THREE.MeshStandardMaterial({ 
-    color: 0x4361ee, 
-    roughness: 0.3, 
-    metalness: 0.4
-  });
+  // 장애물 (파스텔 톤 박스들)
+  const pastelColors = [0xffd1dc, 0xffe4e1, 0xe0ffff, 0xdcfadc, 0xfffacd, 0xe6e6fa];
   
   for (let i = 0; i < 80; i++) {
     const height = Math.random() * 15 + 2;
     const width = Math.random() * 3 + 1;
     const depth = Math.random() * 3 + 1;
     const geometry = new THREE.BoxGeometry(width, height, depth);
+    const boxColor = pastelColors[Math.floor(Math.random() * pastelColors.length)];
+    const wallMat = new THREE.MeshStandardMaterial({ 
+      color: boxColor, 
+      roughness: 0.3, 
+      metalness: 0.1
+    });
     const box = new THREE.Mesh(geometry, wallMat);
     
     box.position.set(

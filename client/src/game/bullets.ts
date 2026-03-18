@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
-import { camera } from '../engine/camera';
-import { playerMesh } from './player';
+import { playerMesh, cameraPhi, PHI_MAX } from './player';
 
 // ─── 탄환 데이터 구조 ─────────────────────────────────────────
 interface Bullet {
@@ -13,7 +12,7 @@ interface Bullet {
 }
 
 const BULLET_SPEED = 20;       // 눈으로 따라가기 좋게 더 낮춤
-const BULLET_LIFETIME = 5.0;   // 사거리 넉넉히
+const BULLET_LIFETIME = 2.5;   // 사거리 절반으로 단축
 const BULLET_COLOR_LOCAL = 0xffff00;
 const BULLET_COLOR_REMOTE = 0xff4444;
 
@@ -70,14 +69,18 @@ export const fireBullet = () => {
     return;
   }
 
-  // 발사 방향 (카메라 시선)
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
+  // 발사 방향 (캐릭터가 보고 있는 정면)
+  const dir = new THREE.Vector3(0, 0, 1);
+  dir.applyQuaternion(playerMesh.quaternion);
+  dir.normalize();
 
-  // 발사 기점 (플레이어 머리 부근에서 약간 앞으로)
+  // 발사 기점 (실시간으로 구부러지는 꽃 머리 위치 계산)
+  const tiltFactor = (cameraPhi / PHI_MAX) * 1.5;
+  const topZ = 0.3 * tiltFactor;
+  const topY = 1.6 + 0.8; // 캐릭터 위(1.6) + 줄기 길이(0.8)
+  
   const origin = playerMesh.position.clone()
-    .add(new THREE.Vector3(0, 1.8, 0))
-    .add(dir.clone().multiplyScalar(1.5));
+    .add(new THREE.Vector3(0, topY, topZ).applyQuaternion(playerMesh.quaternion));
 
   createBullet(origin, dir, 'local');
 

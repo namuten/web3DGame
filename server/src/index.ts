@@ -28,12 +28,17 @@ io.on('connection', (socket: Socket) => {
   // 기본 방에 접속시킴 (Room Scaling)
   socket.join(DEFAULT_ROOM);
 
-  // 새로운 플레이어 생성 (초기 위치, 회전값, 접속한 방)
+  // 새로운 플레이어 생성 (초기 위치, 회전값, 접속한 방, 색상 추가)
+  const bodyColors = [0xffb7b2, 0xffe4e1, 0xdfccf1, 0xdcfadc, 0xfffacd, 0xffd1dc];
+  const flowerColors = [0xffffff, 0xffff00, 0xff00ff, 0x00ffff, 0xff4444, 0x9b59b6];
+
   players[socket.id] = {
     id: socket.id,
     room: DEFAULT_ROOM,
     position: { x: 0, y: 1, z: 0 },
     quaternion: { _x: 0, _y: 0, _z: 0, _w: 1 },
+    bodyColor: bodyColors[Math.floor(Math.random() * bodyColors.length)],
+    flowerColor: flowerColors[Math.floor(Math.random() * flowerColors.length)],
   };
 
   // 기존 접속자들에게 새 플레이어 알림 (방 안에만)

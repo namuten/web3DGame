@@ -1,17 +1,16 @@
 import { io, Socket } from 'socket.io-client';
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
-import { playerMesh } from '../game/player';
+import { playerMesh, setPlayerColor } from '../game/player';
+import { createCharacterModel } from '../game/characterModel';
 import { appendMessage } from '../ui/chat';
 import { addRemoteBullet } from '../game/bullets';
+import { otherPlayers } from './players';
 
 // 서버 포트 3000에 연결
 export const socket: Socket = io('http://localhost:3000');
 
 // 다른 플레이어 메쉬들을 저장 (key=socketId, value=THREE.Group)
-const otherPlayers: Record<string, THREE.Group> = {};
-const otherPlayerGeo = new THREE.CapsuleGeometry(0.5, 1, 4, 16);
-const otherPlayerMat = new THREE.MeshStandardMaterial({ color: 0xf72585, roughness: 0.2, metalness: 0.8 });
 
 socket.on('connect', () => {
   console.log('서버에 연결되었습니다!', socket.id);
@@ -21,15 +20,18 @@ socket.on('connect', () => {
 socket.on('current_players', (players: Record<string, any>) => {
   for (const id in players) {
     if (id !== socket.id) {
-      addOtherPlayer(id, players[id].position);
+      addOtherPlayer(id, players[id].position, players[id].bodyColor, players[id].flowerColor);
+    } else {
+      console.log(`[Socket] Setting local player color: Body=${players[id].bodyColor}, Flower=${players[id].flowerColor}`);
+      setPlayerColor(players[id].bodyColor, players[id].flowerColor);
     }
   }
 });
 
 // 신규 접속 플레이어 알림 수신
-socket.on('player_joined', (playerData: { id: string, position: {x:number, y:number, z:number}, quaternion?: {_x:number, _y:number, _z:number, _w:number} }) => {
-  console.log('새 플레이어 접근!', playerData.id);
-  addOtherPlayer(playerData.id, playerData.position);
+socket.on('player_joined', (playerData: { id: string, position: {x:number, y:number, z:number}, bodyColor: number, flowerColor: number, quaternion?: {_x:number, _y:number, _z:number, _w:number} }) => {
+  console.log(`[Socket] New player joined: ${playerData.id}, Body=${playerData.bodyColor}, Flower=${playerData.flowerColor}`);
+  addOtherPlayer(playerData.id, playerData.position, playerData.bodyColor, playerData.flowerColor);
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)
@@ -74,27 +76,16 @@ socket.on('player_left', (id: string) => {
   }
 });
 
-function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number}) {
-  if(otherPlayers[id]) return; // 이미 있으면 추가 x
+function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number}, bodyColor: number = 0xffb7b2, flowerColor: number = 0xffd1dc) {
+  if(otherPlayers[id]) return; 
 
-  const group = new THREE.Group();
+  // 신형 캐릭터 모델 생성 
+  const model = createCharacterModel(bodyColor, flowerColor);
   
-  const body = new THREE.Mesh(otherPlayerGeo, otherPlayerMat);
-  body.castShadow = true;
-  body.receiveShadow = true;
-  body.position.y = 1;
-
-  const visorGeo = new THREE.BoxGeometry(0.7, 0.3, 0.3);
-  const visorMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1, metalness: 0.9 });
-  const visor = new THREE.Mesh(visorGeo, visorMat);
-  visor.position.set(0, 1.4, -0.45);
-  
-  group.add(body);
-  group.add(visor);
-
-  group.position.set(initialPos.x, initialPos.y, initialPos.z);
-  scene.add(group);
-  otherPlayers[id] = group;
+  // 위치 설정
+  model.position.set(initialPos.x, initialPos.y, initialPos.z);
+  scene.add(model);
+  otherPlayers[id] = model;
 }
 
 // 지속적으로 내 위치 서버로 브로드캐스트. 

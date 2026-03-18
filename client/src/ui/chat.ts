@@ -6,12 +6,12 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     chatContainer.style.left = '20px';
     chatContainer.style.width = '300px';
     chatContainer.style.height = '200px';
-    chatContainer.style.backgroundColor = 'rgba(0, 20, 40, 0.6)';
+    chatContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
     chatContainer.style.borderRadius = '5px';
     chatContainer.style.display = 'flex';
     chatContainer.style.flexDirection = 'column';
     chatContainer.style.overflow = 'hidden';
-    chatContainer.style.border = '1px solid #00f0ff';
+    chatContainer.style.border = '1px solid #cccccc';
     chatContainer.style.pointerEvents = 'auto'; // 입력 등을 위해 클릭 허용
     document.body.appendChild(chatContainer);
 
@@ -21,7 +21,7 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     messagesDiv.style.flex = '1';
     messagesDiv.style.overflowY = 'auto';
     messagesDiv.style.padding = '10px';
-    messagesDiv.style.color = '#fff';
+    messagesDiv.style.color = '#333';
     messagesDiv.style.fontFamily = 'monospace';
     messagesDiv.style.fontSize = '12px';
     messagesDiv.style.display = 'flex';
@@ -32,7 +32,7 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     // 입력창 영역
     const inputArea = document.createElement('div');
     inputArea.style.display = 'flex';
-    inputArea.style.borderTop = '1px solid #00f0ff';
+    inputArea.style.borderTop = '1px solid #cccccc';
     chatContainer.appendChild(inputArea);
 
     const inputField = document.createElement('input');
@@ -41,7 +41,7 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     inputField.style.flex = '1';
     inputField.style.backgroundColor = 'transparent';
     inputField.style.border = 'none';
-    inputField.style.color = '#00f0ff';
+    inputField.style.color = '#333';
     inputField.style.padding = '10px';
     inputField.style.outline = 'none';
     inputField.style.fontFamily = 'monospace';

@@ -5,10 +5,10 @@ import { scene } from '../engine/scene';
 export const worldCollidables: THREE.Object3D[] = [];
 
 export const initWorld = () => {
-  scene.background = new THREE.Color(0xf0f4f8); // 맑고 밝은 배경색
-  scene.fog = new THREE.FogExp2(0xf0f4f8, 0.012);
+  scene.background = new THREE.Color(0xA2D2FF);
+  scene.fog = new THREE.FogExp2(0xA2D2FF, 0.005);
 
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0xddeeff, 0.8);
+  const hemiLight = new THREE.HemisphereLight(0xFFFFFF, 0xB9F3FC, 1.0);
   scene.add(hemiLight);
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
@@ -25,46 +25,77 @@ export const initWorld = () => {
   dirLight.shadow.bias = -0.001;
   scene.add(dirLight);
 
+  // 잔디 텍스처 생성 (Canvas 절차적 생성)
+  const grassCanvas = document.createElement('canvas');
+  grassCanvas.width = 256;
+  grassCanvas.height = 256;
+  const ctx = grassCanvas.getContext('2d')!;
+
+  // 초록 베이스
+  ctx.fillStyle = '#5a9e3a';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // 잔디 색상 변화 (밝고 어두운 초록 점들)
+  const rng = (seed: number) => {
+    const x = Math.sin(seed) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  for (let i = 0; i < 8000; i++) {
+    const x = rng(i * 3.1) * 256;
+    const y = rng(i * 7.4) * 256;
+    const bright = rng(i * 2.2);
+    const r = Math.floor(60 + bright * 40);
+    const g = Math.floor(130 + bright * 60);
+    const b = Math.floor(30 + bright * 20);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(x, y, 2, rng(i * 5.7) * 4 + 1);
+  }
+
+  const grassTexture = new THREE.CanvasTexture(grassCanvas);
+  grassTexture.wrapS = THREE.RepeatWrapping;
+  grassTexture.wrapT = THREE.RepeatWrapping;
+  grassTexture.repeat.set(40, 40);
+
   // 바닥
   const floorSize = 400;
   const floorGeometry = new THREE.PlaneGeometry(floorSize, floorSize);
-  const floorMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xffffff, // 깔끔한 흰색 바닥
-    roughness: 0.2,
-    metalness: 0
+  const floorMaterial = new THREE.MeshStandardMaterial({
+    map: grassTexture,
+    roughness: 0.9,
+    metalness: 0.0,
   });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // 부드러운 그리드
-  const gridHelper = new THREE.GridHelper(floorSize, 100, 0xcccccc, 0xeeeeee);
-  gridHelper.position.y = 0.05;
-  (gridHelper.material as THREE.LineBasicMaterial).opacity = 0.2;
-  (gridHelper.material as THREE.LineBasicMaterial).transparent = true;
-  scene.add(gridHelper);
+  // 시드 기반 난수 (모든 클라이언트 동일한 월드 생성)
+  let seed = 42;
+  const seededRandom = () => {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+    return (seed >>> 0) / 0xffffffff;
+  };
 
-  // 장애물 (파스텔 톤 박스들)
-  const pastelColors = [0xffd1dc, 0xffe4e1, 0xe0ffff, 0xdcfadc, 0xfffacd, 0xe6e6fa];
-  
+  // 장애물 (아이들용 파스텔 톤 박스들)
+  const neonColors = [0xFFADAD, 0xFFD6A5, 0xFDFFB6, 0xCAFFBF, 0x9BF6FF, 0xA0C4FF, 0xBDB2FF, 0xFFC6FF];
+
   for (let i = 0; i < 80; i++) {
-    const height = Math.random() * 15 + 2;
-    const width = Math.random() * 3 + 1;
-    const depth = Math.random() * 3 + 1;
+    const height = seededRandom() * 15 + 2;
+    const width = seededRandom() * 3 + 1;
+    const depth = seededRandom() * 3 + 1;
     const geometry = new THREE.BoxGeometry(width, height, depth);
-    const boxColor = pastelColors[Math.floor(Math.random() * pastelColors.length)];
-    const wallMat = new THREE.MeshStandardMaterial({ 
-      color: boxColor, 
-      roughness: 0.3, 
-      metalness: 0.1
+    const boxColor = neonColors[Math.floor(seededRandom() * neonColors.length)];
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: boxColor,
+      roughness: 0.4,
+      metalness: 0.0
     });
     const box = new THREE.Mesh(geometry, wallMat);
-    
+
     box.position.set(
-      Math.random() * 160 - 80,
+      seededRandom() * 160 - 80,
       height / 2,
-      Math.random() * 160 - 80
+      seededRandom() * 160 - 80
     );
     box.castShadow = true;
     box.receiveShadow = true;

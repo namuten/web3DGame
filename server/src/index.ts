@@ -29,17 +29,30 @@ io.on('connection', (socket: Socket) => {
   socket.join(DEFAULT_ROOM);
 
   // 새로운 플레이어 생성 (초기 위치, 회전값, 접속한 방, 색상 추가)
-  const bodyColors = [0xffb7b2, 0xffe4e1, 0xdfccf1, 0xdcfadc, 0xfffacd, 0xffd1dc];
-  const flowerColors = [0xffffff, 0xffff00, 0xff00ff, 0x00ffff, 0xff4444, 0x9b59b6];
+  const bodyColors = [0xff6b6b, 0xff9f43, 0xffd32a, 0x6bcb77, 0x4dabf7, 0xcc5de8, 0xff6eb4, 0x38d9a9];
+
+  const playerName = String((socket.handshake.auth as any)?.playerName || '익명').slice(0, 12);
 
   players[socket.id] = {
     id: socket.id,
+    name: playerName,
     room: DEFAULT_ROOM,
     position: { x: 0, y: 1, z: 0 },
     quaternion: { _x: 0, _y: 0, _z: 0, _w: 1 },
     bodyColor: bodyColors[Math.floor(Math.random() * bodyColors.length)],
-    flowerColor: flowerColors[Math.floor(Math.random() * flowerColors.length)],
+    flowerColor: 0xffffff,
   };
+
+  // 이름 설정 이벤트
+  socket.on('SET_NAME', (name: string) => {
+    if (players[socket.id]) {
+      players[socket.id].name = String(name).slice(0, 12) || '익명';
+      socket.to(players[socket.id].room).emit('PLAYER_NAME', {
+        id: socket.id,
+        name: players[socket.id].name,
+      });
+    }
+  });
 
   // 기존 접속자들에게 새 플레이어 알림 (방 안에만)
   socket.to(DEFAULT_ROOM).emit('player_joined', players[socket.id]);
@@ -67,7 +80,8 @@ io.on('connection', (socket: Socket) => {
       socket.to(players[socket.id].room).emit('STATE_UPDATE', {
         id: socket.id,
         position: data.position,
-        quaternion: data.quaternion
+        quaternion: data.quaternion,
+        upperYaw: data.upperYaw
       });
     }
   });
@@ -75,7 +89,7 @@ io.on('connection', (socket: Socket) => {
   // 채팅 메시지 수신 및 전달
   socket.on('CHAT_MESSAGE', (data: { text: string }) => {
     socket.to(players[socket.id]?.room || DEFAULT_ROOM).emit('CHAT_MESSAGE', {
-        sender: socket.id,
+        sender: players[socket.id]?.name || '익명',
         text: data.text
     });
   });

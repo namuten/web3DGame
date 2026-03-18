@@ -3,7 +3,7 @@ import * as THREE from 'three';
 /**
  * 2톤 알약 캐릭터를 생성 (하단 흰색 고정, 상단 색상 가변)
  */
-export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = 0xffd1dc) => {
+export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = bodyColor) => {
   const root = new THREE.Group();
   
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.1, metalness: 0 });
@@ -73,6 +73,11 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
     upperBody.rotation.y = yRotation;
   };
 
+  // 꽃 물리 업데이트 (스프링 물리 연동)
+  (root as any).updateFlowerPhysics = (forward: number, side: number) => {
+    if ((flower as any).updateFlowerPhysics) (flower as any).updateFlowerPhysics(forward, side);
+  };
+
   // 꽃 기울기 업데이트 (카메라 앙각 연동)
   (root as any).updateFlowerTilt = (tiltFactor: number) => {
     if ((flower as any).updateTilt) (flower as any).updateTilt(tiltFactor);
@@ -107,6 +112,8 @@ function createFlowerModel(flowerColor: number) {
   flowerGroup.add(leaf);
 
   const flowerHead = new THREE.Group();
+  flowerHead.position.set(0, stemHeight, 0);
+  flowerHead.rotation.x = 0.4;
   flowerGroup.add(flowerHead);
 
   const center = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({ color: 0xffcc00 }));
@@ -128,15 +135,24 @@ function createFlowerModel(flowerColor: number) {
     flowerHead.add(petal);
   }
 
-  (flowerGroup as any).updateTilt = (tiltFactor: number) => {
+  // 물리 기반 꽃 움직임 (forward: 앞뒤 기울기, side: 좌우 기울기)
+  (flowerGroup as any).updateFlowerPhysics = (forward: number, side: number) => {
     const tiltBase = 0.4;
     stemSegments.forEach((seg, i) => {
       const t = i / (stemSegments.length - 1);
-      seg.position.z = Math.pow(t, 2) * 0.3 * tiltFactor;
-      seg.rotation.x = t * tiltFactor;
+      const curve = Math.pow(t, 2);
+      seg.position.z = curve * forward * 1.1;
+      seg.position.x = curve * side * 1.1;
+      seg.rotation.x = t * forward * 1.8;
+      seg.rotation.z = -t * side * 1.8;
     });
-    flowerHead.position.set(0, stemHeight, 0.3 * tiltFactor);
-    flowerHead.rotation.x = tiltBase + (tiltFactor * 0.5);
+    flowerHead.position.set(side * 1.1, stemHeight, forward * 1.1);
+    flowerHead.rotation.x = tiltBase + forward * 2.2;
+    flowerHead.rotation.z = -side * 2.2;
+  };
+
+  (flowerGroup as any).updateTilt = (tiltFactor: number) => {
+    (flowerGroup as any).updateFlowerPhysics(tiltFactor * 0.3, 0);
   };
 
   (flowerGroup as any).setPetalColor = (newColor: number) => {

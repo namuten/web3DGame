@@ -13,12 +13,16 @@ export const playerMesh = new THREE.Group();
 const characterModel = createCharacterModel();
 playerMesh.add(characterModel);
 
-export const setPlayerColor = (bodyColor: number, flowerColor: number) => {
+let localBodyColor: number = 0xffb7b2;
+export const getLocalBodyColor = () => localBodyColor;
+
+export const setPlayerColor = (bodyColor: number, _flowerColor: number) => {
+  localBodyColor = bodyColor;
   if ((characterModel as any).setBodyColor) {
     (characterModel as any).setBodyColor(bodyColor);
   }
   if ((characterModel as any).setFlowerColor) {
-    (characterModel as any).setFlowerColor(flowerColor);
+    (characterModel as any).setFlowerColor(bodyColor);
   }
 };
 
@@ -31,8 +35,8 @@ const keys = {
 };
 
 // ─── 궤도 카메라 (Spherical Orbit) 파라미터 ───────────────────
-let cameraTheta = Math.PI;    
-export let cameraPhi = Math.PI / 5;  
+let cameraTheta = Math.PI;
+export let cameraPhi = Math.PI / 2.8;
 const CAMERA_DIST = 14;       
 
 // 카메라 회전 관성 변수
@@ -45,7 +49,7 @@ const PHI_MIN = 0.1;
 export const PHI_MAX = Math.PI / 2.2; 
 
 // 카메라 보간 변수
-const currentCameraPos = new THREE.Vector3(0, 8, 14);
+const currentCameraPos = new THREE.Vector3(0, 4, 14);
 const smoothLookAtPos = new THREE.Vector3(0, 1.5, 0);
 
 // ─── 점프 & 중력 ──────────────────────────────────────────────
@@ -57,7 +61,14 @@ let isOnGround = true;
 
 // 상체 회전 보간 변수
 let currentUpperYaw = 0;
-const UPPER_LERP_SPEED = 3.5; // 더 천천히 따라오게 변경 (5 -> 3.5)
+export const getUpperYaw = () => currentUpperYaw;
+const UPPER_LERP_SPEED = 3.5;
+
+// 꽃 스프링 물리 변수
+let flowerSpringFwd = 0, flowerSpringFwdVel = 0;
+let flowerSpringSide = 0, flowerSpringSideVel = 0;
+const SPRING_K = 18;   // 탄성 (클수록 빠르게 복원)
+const SPRING_D = 5.5;  // 감쇠 (클수록 빨리 멈춤)
 
 // ─── 이동 속도 ────────────────────────────────────────────────
 const speed = 12;
@@ -74,9 +85,10 @@ const obstacleBox = new THREE.Box3();
 const checkCollision = (position: THREE.Vector3): boolean => {
   // 1. 벽/장애물 충돌 (AABB)
   // 플레이어의 바운딩 박스 설정 (캡슐 형태이므로 약간의 마진)
+  // 박스 하단을 발바닥보다 0.25 올려서, 딛고 서 있는 면과 겹치지 않도록
   playerBox.setFromCenterAndSize(
-    position.clone().add(new THREE.Vector3(0, 1, 0)), 
-    new THREE.Vector3(0.8, 1.8, 0.8) // 실제 0.5 보다는 약간 작게 해서 부드럽게
+    position.clone().add(new THREE.Vector3(0, 1.25, 0)),
+    new THREE.Vector3(0.75, 1.5, 0.75)
   );
 
   for (const obj of worldCollidables) {
@@ -158,8 +170,8 @@ export const initPlayer = () => {
 // ─── 매 프레임 업데이트 ───────────────────────────────────────
 export const updatePlayer = (deltaTime: number) => {
   // -- 카메라 회전 가속도 적용 (관성 시스템) --
-  if (keys.arrowLeft)  thetaVelocity -= ROTATION_ACCEL * deltaTime;
-  if (keys.arrowRight) thetaVelocity += ROTATION_ACCEL * deltaTime;
+  if (keys.arrowLeft)  thetaVelocity += ROTATION_ACCEL * deltaTime;
+  if (keys.arrowRight) thetaVelocity -= ROTATION_ACCEL * deltaTime;
   if (keys.arrowUp)    phiVelocity   -= ROTATION_ACCEL * deltaTime;
   if (keys.arrowDown)  phiVelocity   += ROTATION_ACCEL * deltaTime;
 
@@ -227,13 +239,58 @@ export const updatePlayer = (deltaTime: number) => {
     }
   }
 
-  // -- 수직 이동 (중력 + 점프) --
+  // -- 수직 이동 (중력 + 점프 + 장애물 착지) --
   verticalVelocity += GRAVITY * deltaTime;
-  playerMesh.position.y += verticalVelocity * deltaTime;
-  if (playerMesh.position.y <= GROUND_Y) {
+  const newY = playerMesh.position.y + verticalVelocity * deltaTime;
+
+  if (newY <= GROUND_Y) {
+    // 바닥 착지
     playerMesh.position.y = GROUND_Y;
     verticalVelocity = 0;
     isOnGround = true;
+  } else {
+    const px = playerMesh.position.x;
+    const pz = playerMesh.position.z;
+    const halfW = 0.38;
+    const prevBottom = playerMesh.position.y + 0.1;
+    const prevTop    = playerMesh.position.y + 1.9;
+    const newBottom  = newY + 0.1;
+    const newTop     = newY + 1.9;
+
+    let blocked = false;
+
+    for (const obj of worldCollidables) {
+      if (!(obj instanceof THREE.Mesh)) continue;
+      obstacleBox.setFromObject(obj);
+
+      // XZ 범위 밖이면 스킵
+      if (px + halfW <= obstacleBox.min.x || px - halfW >= obstacleBox.max.x) continue;
+      if (pz + halfW <= obstacleBox.min.z || pz - halfW >= obstacleBox.max.z) continue;
+
+      if (verticalVelocity <= 0) {
+        // 낙하 중: 장애물 위면에 착지
+        if (prevBottom >= obstacleBox.max.y - 0.05 && newBottom <= obstacleBox.max.y) {
+          playerMesh.position.y = obstacleBox.max.y - 0.1;
+          verticalVelocity = 0;
+          isOnGround = true;
+          blocked = true;
+          break;
+        }
+      } else {
+        // 점프 중: 장애물 아랫면에 머리 충돌
+        if (prevTop <= obstacleBox.min.y + 0.05 && newTop >= obstacleBox.min.y) {
+          verticalVelocity = 0;
+          blocked = true;
+          break;
+        }
+      }
+    }
+
+    if (!blocked) {
+      playerMesh.position.y = newY;
+      // 공중에 뜬 경우 isOnGround 해제 (장애물 위에서 걸어나갔을 때)
+      if (verticalVelocity < -0.5) isOnGround = false;
+    }
   }
 
   // -- 궤도 카메라 위치 계산 (구면 좌표 → 데카르트 좌표) --
@@ -248,10 +305,30 @@ export const updatePlayer = (deltaTime: number) => {
   currentCameraPos.lerp(idealCameraPos, Math.min(7 * deltaTime, 1.0));
   camera.position.copy(currentCameraPos);
 
-  // -- 상체 회전 및 꽃망울 애니메이션 (카메라 방향 연동) --
-  const tiltFactor = (cameraPhi / PHI_MAX) * 1.5;
-  if ((characterModel as any).updateFlowerTilt) {
-    (characterModel as any).updateFlowerTilt(tiltFactor);
+  // -- 꽃 스프링 물리 (이동 방향 반대로 쏠림) --
+  // 이동 벡터를 캐릭터 로컬 좌표로 변환 (앞뒤/좌우)
+  const movingFwd = playerVelocity.lengthSq() > 0
+    ? playerVelocity.dot(camHorizontalForward)
+    : 0;
+  const movingSide = playerVelocity.lengthSq() > 0
+    ? playerVelocity.dot(camHorizontalRight)
+    : 0;
+
+  // 목표: 이동 반대 방향으로 쏠림
+  const targetFwd  = -movingFwd  * 0.9;
+  const targetSide = movingSide * 0.6;
+
+  // 스프링 공식: F = -k*(x - target) - d*v
+  const forceFwd  = (targetFwd  - flowerSpringFwd)  * SPRING_K - flowerSpringFwdVel  * SPRING_D;
+  const forceSide = (targetSide - flowerSpringSide) * SPRING_K - flowerSpringSideVel * SPRING_D;
+
+  flowerSpringFwdVel  += forceFwd  * deltaTime;
+  flowerSpringSideVel += forceSide * deltaTime;
+  flowerSpringFwd     += flowerSpringFwdVel  * deltaTime;
+  flowerSpringSide    += flowerSpringSideVel * deltaTime;
+
+  if ((characterModel as any).updateFlowerPhysics) {
+    (characterModel as any).updateFlowerPhysics(flowerSpringFwd, flowerSpringSide);
   }
 
   // 카메라가 바라보는 방향과 캐릭터 몸체 방향 사이의 차이 계산

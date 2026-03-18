@@ -1,26 +1,47 @@
 import { io, Socket } from 'socket.io-client';
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
-import { playerMesh, setPlayerColor } from '../game/player';
+import { playerMesh, setPlayerColor, getUpperYaw } from '../game/player';
 import { createCharacterModel } from '../game/characterModel';
 import { appendMessage } from '../ui/chat';
-import { addRemoteBullet } from '../game/bullets';
+import { addRemoteBullet, setRemotePlayerColor } from '../game/bullets';
+import { createNameTag } from '../game/nameTag';
 import { otherPlayers } from './players';
 
-// 서버 포트 3000에 연결
-export const socket: Socket = io('http://localhost:3000');
+// autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
+export const socket: Socket = io('http://localhost:3000', { autoConnect: false });
 
-// 다른 플레이어 메쉬들을 저장 (key=socketId, value=THREE.Group)
+// 이름표 스프라이트 직접 참조 Map (getObjectByName 대신)
+const nameTags: Record<string, THREE.Group | THREE.Mesh> = {};
 
 socket.on('connect', () => {
   console.log('서버에 연결되었습니다!', socket.id);
+});
+
+let localPlayerName = '나';
+
+// 이름을 auth에 넣고 연결 → 서버가 처음부터 이름을 알고 있음
+export const connectWithName = (name: string) => {
+  localPlayerName = name;
+  socket.auth = { playerName: name };
+  socket.connect();
+};
+
+// 다른 플레이어 이름 수신 → 이름표 교체
+socket.on('PLAYER_NAME', (data: { id: string, name: string }) => {
+  if (otherPlayers[data.id]) {
+    if (nameTags[data.id]) otherPlayers[data.id].remove(nameTags[data.id]);
+    const tag = createNameTag(data.name);
+    otherPlayers[data.id].add(tag);
+    nameTags[data.id] = tag;
+  }
 });
 
 // 이미 있던 플레이어 정보 초기 수신
 socket.on('current_players', (players: Record<string, any>) => {
   for (const id in players) {
     if (id !== socket.id) {
-      addOtherPlayer(id, players[id].position, players[id].bodyColor, players[id].flowerColor);
+      addOtherPlayer(id, players[id].position, players[id].bodyColor, players[id].flowerColor, players[id].name);
     } else {
       console.log(`[Socket] Setting local player color: Body=${players[id].bodyColor}, Flower=${players[id].flowerColor}`);
       setPlayerColor(players[id].bodyColor, players[id].flowerColor);
@@ -29,27 +50,28 @@ socket.on('current_players', (players: Record<string, any>) => {
 });
 
 // 신규 접속 플레이어 알림 수신
-socket.on('player_joined', (playerData: { id: string, position: {x:number, y:number, z:number}, bodyColor: number, flowerColor: number, quaternion?: {_x:number, _y:number, _z:number, _w:number} }) => {
-  console.log(`[Socket] New player joined: ${playerData.id}, Body=${playerData.bodyColor}, Flower=${playerData.flowerColor}`);
-  addOtherPlayer(playerData.id, playerData.position, playerData.bodyColor, playerData.flowerColor);
+socket.on('player_joined', (playerData: { id: string, name: string, position: {x:number, y:number, z:number}, bodyColor: number, flowerColor: number, quaternion?: {_x:number, _y:number, _z:number, _w:number} }) => {
+  addOtherPlayer(playerData.id, playerData.position, playerData.bodyColor, playerData.flowerColor, playerData.name);
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)
-socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:number, z:number}, quaternion?: {_x:number, _y:number, _z:number, _w:number} }) => {
+socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:number, z:number}, quaternion?: {_x:number, _y:number, _z:number, _w:number}, upperYaw?: number }) => {
   if (otherPlayers[updateInfo.id]) {
     otherPlayers[updateInfo.id].position.set(
       updateInfo.position.x,
       updateInfo.position.y,
       updateInfo.position.z
     );
-    if(updateInfo.quaternion) {
-      // 쿼터니언 업데이트 (회전 동기화)
+    if (updateInfo.quaternion) {
       otherPlayers[updateInfo.id].quaternion.set(
         updateInfo.quaternion._x,
         updateInfo.quaternion._y,
         updateInfo.quaternion._z,
         updateInfo.quaternion._w
       );
+    }
+    if (updateInfo.upperYaw !== undefined && (otherPlayers[updateInfo.id] as any).setUpperRotation) {
+      (otherPlayers[updateInfo.id] as any).setUpperRotation(updateInfo.upperYaw);
     }
   }
 });
@@ -73,51 +95,55 @@ socket.on('player_left', (id: string) => {
   if (otherPlayers[id]) {
     scene.remove(otherPlayers[id]);
     delete otherPlayers[id];
+    delete nameTags[id];
   }
 });
 
-function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number}, bodyColor: number = 0xffb7b2, flowerColor: number = 0xffd1dc) {
-  if(otherPlayers[id]) return; 
+function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number}, bodyColor: number = 0xffb7b2, _flowerColor: number = 0xffd1dc, name: string = '익명') {
+  if(otherPlayers[id]) return;
 
-  // 신형 캐릭터 모델 생성 
-  const model = createCharacterModel(bodyColor, flowerColor);
-  
-  // 위치 설정
+  setRemotePlayerColor(id, bodyColor);
+
+  const model = createCharacterModel(bodyColor, bodyColor);
   model.position.set(initialPos.x, initialPos.y, initialPos.z);
+
+  // 이름표 추가
+  const tag = createNameTag(name);
+  model.add(tag);
+  nameTags[id] = tag;
+
   scene.add(model);
   otherPlayers[id] = model;
 }
 
-// 지속적으로 내 위치 서버로 브로드캐스트. 
-// 최적화: 위치가 바뀐 경우에만 전송
-let lastPosX = playerMesh.position.x;
-let lastPosZ = playerMesh.position.z;
+// 초당 20회 강제 전송 (딜레이 최소화)
+const BROADCAST_INTERVAL = 1000 / 20;
+let lastBroadcastTime = 0;
 
 export const broadcastLocalPosition = () => {
-    // 이동 또는 회전 체크 오차 (소수점)
-    if (Math.abs(playerMesh.position.x - lastPosX) > 0.01 || Math.abs(playerMesh.position.z - lastPosZ) > 0.01) {
-        lastPosX = playerMesh.position.x;
-        lastPosZ = playerMesh.position.z;
-        
-        socket.emit('MOVE', {
-            position: {
-                x: playerMesh.position.x,
-                y: playerMesh.position.y,
-                z: playerMesh.position.z
-            },
-            quaternion: {
-                _x: playerMesh.quaternion.x,
-                _y: playerMesh.quaternion.y,
-                _z: playerMesh.quaternion.z,
-                _w: playerMesh.quaternion.w
-            }
-        });
-    }
+    const now = performance.now();
+    if (now - lastBroadcastTime < BROADCAST_INTERVAL) return;
+    lastBroadcastTime = now;
+
+    socket.emit('MOVE', {
+        position: {
+            x: playerMesh.position.x,
+            y: playerMesh.position.y,
+            z: playerMesh.position.z
+        },
+        quaternion: {
+            _x: playerMesh.quaternion.x,
+            _y: playerMesh.quaternion.y,
+            _z: playerMesh.quaternion.z,
+            _w: playerMesh.quaternion.w
+        },
+        upperYaw: getUpperYaw()
+    });
 };
 
 export const sendChatMessage = (text: string) => {
     socket.emit('CHAT_MESSAGE', { text });
-    appendMessage(socket.id || 'Me', text, '#ffcc00'); // 내가 보낸 건 노란색으로 처리
+    appendMessage(localPlayerName, text, '#ffcc00');
 };
 
 export const sendShoot = (origin: THREE.Vector3, direction: THREE.Vector3) => {

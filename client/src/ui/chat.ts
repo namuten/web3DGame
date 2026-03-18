@@ -6,12 +6,15 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     chatContainer.style.left = '20px';
     chatContainer.style.width = '300px';
     chatContainer.style.height = '200px';
-    chatContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
+    chatContainer.style.background = 'linear-gradient(135deg, rgba(15, 15, 30, 0.6), rgba(30, 20, 50, 0.4))';
     chatContainer.style.borderRadius = '5px';
     chatContainer.style.display = 'flex';
     chatContainer.style.flexDirection = 'column';
     chatContainer.style.overflow = 'hidden';
-    chatContainer.style.border = '1px solid #cccccc';
+    chatContainer.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+    chatContainer.style.boxShadow = '0 8px 32px 0 rgba(31, 38, 135, 0.37)';
+    chatContainer.style.backdropFilter = 'blur(8px)';
+    (chatContainer.style as any)['-webkit-backdrop-filter'] = 'blur(8px)';
     chatContainer.style.pointerEvents = 'auto'; // 입력 등을 위해 클릭 허용
     document.body.appendChild(chatContainer);
 
@@ -21,7 +24,7 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     messagesDiv.style.flex = '1';
     messagesDiv.style.overflowY = 'auto';
     messagesDiv.style.padding = '10px';
-    messagesDiv.style.color = '#333';
+    messagesDiv.style.color = '#E0E0FF';
     messagesDiv.style.fontFamily = 'monospace';
     messagesDiv.style.fontSize = '12px';
     messagesDiv.style.display = 'flex';
@@ -32,20 +35,31 @@ export const initChat = (onSendMessage: (msg: string) => void) => {
     // 입력창 영역
     const inputArea = document.createElement('div');
     inputArea.style.display = 'flex';
-    inputArea.style.borderTop = '1px solid #cccccc';
+    inputArea.style.borderTop = '1px solid rgba(255, 255, 255, 0.15)';
     chatContainer.appendChild(inputArea);
 
     const inputField = document.createElement('input');
     inputField.type = 'text';
-    inputField.placeholder = 'Press Enter to chat...';
+    inputField.placeholder = 'Press Enter to jack in...';
     inputField.style.flex = '1';
     inputField.style.backgroundColor = 'transparent';
     inputField.style.border = 'none';
-    inputField.style.color = '#333';
+    inputField.style.color = '#E0E0FF';
     inputField.style.padding = '10px';
     inputField.style.outline = 'none';
     inputField.style.fontFamily = 'monospace';
+    inputField.style.fontSize = '12px';
     inputArea.appendChild(inputField);
+
+    inputField.style.setProperty('caret-color', '#20FFC9');
+
+    const placeholderStyle = document.createElement('style');
+    placeholderStyle.textContent = `
+        input::placeholder {
+            color: rgba(224, 224, 255, 0.6);
+        }
+    `;
+    document.head.appendChild(placeholderStyle);
 
     // 엔터키 전송 이벤트
     inputField.addEventListener('keydown', (e) => {
@@ -84,6 +98,7 @@ export const appendMessage = (sender: string, text: string, color: string = '#cc
     if (!messagesDiv) return;
 
     const msgEl = document.createElement('div');
+    msgEl.style.color = '#E0E0FF';
     msgEl.innerHTML = `<span style="color: ${color}; font-weight: bold;">[${sender.substring(0, 5)}]</span> ${text}`;
     
     messagesDiv.appendChild(msgEl);

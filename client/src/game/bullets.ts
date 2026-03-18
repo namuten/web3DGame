@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
-import { playerMesh, cameraPhi, PHI_MAX } from './player';
+import { playerMesh, cameraPhi, PHI_MAX, getLocalBodyColor } from './player';
 
 // ─── 탄환 데이터 구조 ─────────────────────────────────────────
 interface Bullet {
@@ -11,10 +11,14 @@ interface Bullet {
   ownerId: string;
 }
 
-const BULLET_SPEED = 20;       // 눈으로 따라가기 좋게 더 낮춤
-const BULLET_LIFETIME = 2.5;   // 사거리 절반으로 단축
-const BULLET_COLOR_LOCAL = 0xffff00;
-const BULLET_COLOR_REMOTE = 0xff4444;
+const BULLET_SPEED = 20;
+const BULLET_LIFETIME = 2.5;
+
+// 원격 플레이어 색상 저장
+const remotePlayerColors: Record<string, number> = {};
+export const setRemotePlayerColor = (id: string, color: number) => {
+  remotePlayerColors[id] = color;
+};
 
 const bullets: Bullet[] = [];
 
@@ -24,23 +28,23 @@ const particles: Particle[] = [];
 
 // ─── 탄환 생성 함수 ──────────────────────────────────────────
 const createBullet = (origin: THREE.Vector3, direction: THREE.Vector3, ownerId: string): Bullet => {
-  const color = ownerId === 'local' ? BULLET_COLOR_LOCAL : BULLET_COLOR_REMOTE;
+  const color = ownerId === 'local' ? getLocalBodyColor() : (remotePlayerColors[ownerId] ?? 0xff4444);
   
   // 구체 메시 (크기 0.5로 키움)
   const geo = new THREE.SphereGeometry(0.5, 16, 16);
   const mat = new THREE.MeshStandardMaterial({
     color: color,
     emissive: color,
-    emissiveIntensity: 10,
+    emissiveIntensity: 0.6,
     transparent: true,
-    opacity: 0.9
+    opacity: 0.95
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(origin);
   scene.add(mesh);
 
   // 주변을 밝히는 포인트 라이트
-  const light = new THREE.PointLight(color, 30, 10);
+  const light = new THREE.PointLight(color, 5, 6);
   mesh.add(light);
 
   const bullet: Bullet = {

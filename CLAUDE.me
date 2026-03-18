@@ -1,0 +1,440 @@
+# Three.js Multiplayer Web Architecture Template
+
+## Purpose
+
+This skill provides a **reference architecture and project template** for building **browser-based multiplayer 3D applications** using:
+
+* Three.js
+* WebSocket
+* Node.js
+* Redis
+* Docker
+
+It is intended for projects such as:
+
+* Multiplayer 3D games
+* Metaverse environments
+* 3D social spaces
+* Realtime collaboration tools
+
+---
+
+# High Level Architecture
+
+```
+                     ┌───────────────┐
+                     │      CDN      │
+                     │ Static Assets │
+                     └──────▲────────┘
+                            │
+                     ┌──────┴────────┐
+                     │ Frontend Host │
+                     │  (Vercel)     │
+                     └──────▲────────┘
+                            │
+                    HTTPS / WebSocket
+                            │
+                ┌───────────┴───────────┐
+                │       API Gateway     │
+                │ (Express / Fastify)   │
+                └───────▲─────────▲─────┘
+                        │         │
+                     REST API   WebSocket
+                        │         │
+            ┌───────────┴───┐ ┌───┴───────────┐
+            │   API Server  │ │ Realtime Game │
+            │ Auth / Data   │ │    Server     │
+            └───────▲───────┘ └──────▲────────┘
+                    │                │
+                    │                │
+             ┌──────┴───────┐  ┌─────┴───────┐
+             │  Database    │  │   Redis     │
+             │ MySQL / etc  │  │ PubSub/Cache│
+             └──────────────┘  └─────────────┘
+```
+
+---
+
+# Client Architecture
+
+The client runs in the browser and performs:
+
+* rendering
+* player input
+* scene updates
+* server communication
+
+```
+Client
+
+ ├ Rendering Engine
+ │   └ Three.js
+ │
+ ├ Game Systems
+ │   ├ Player Controller
+ │   ├ World Logic
+ │   ├ Physics
+ │
+ ├ Networking
+ │   ├ WebSocket Client
+ │   └ State Sync
+ │
+ └ UI Layer
+     └ HUD / Chat / Menus
+```
+
+---
+
+# Client Project Structure
+
+```
+client
+ ├ src
+ │
+ │  ├ engine
+ │  │   renderer.ts
+ │  │   scene.ts
+ │  │   camera.ts
+ │
+ │  ├ game
+ │  │   player.ts
+ │  │   world.ts
+ │  │   npc.ts
+ │
+ │  ├ network
+ │  │   socket.ts
+ │  │   stateSync.ts
+ │
+ │  ├ ui
+ │  │   hud.ts
+ │  │   chat.ts
+ │
+ │  └ main.ts
+ │
+ └ vite.config.ts
+```
+
+---
+
+# Realtime Server
+
+Handles:
+
+* player connections
+* room management
+* game state updates
+* broadcasting events
+
+```
+Realtime Server
+
+ ├ Connection Manager
+ ├ Room Manager
+ ├ Player State
+ ├ Game Loop
+ └ Event Broadcast
+```
+
+Example server structure:
+
+```
+server
+ ├ realtime
+ │
+ │  ├ rooms
+ │  │   gameRoom.ts
+ │
+ │  ├ entities
+ │  │   player.ts
+ │
+ │  ├ systems
+ │  │   movement.ts
+ │  │   physics.ts
+ │
+ │  └ sync
+ │      stateSync.ts
+ │
+ └ index.ts
+```
+
+---
+
+# Game State Synchronization
+
+Recommended model:
+
+```
+Server Authoritative
+```
+
+Flow:
+
+```
+client -> send input
+server -> simulate world
+server -> broadcast updated state
+```
+
+Example message flow:
+
+```
+client
+  move_forward
+
+server
+  update position
+
+server
+  broadcast new position
+```
+
+Advantages:
+
+* cheat prevention
+* consistent world state
+* easier debugging
+
+---
+
+# Networking Protocol Example
+
+Client → Server
+
+```
+{
+  type: "MOVE",
+  direction: "forward",
+  timestamp: 123456
+}
+```
+
+Server → Client
+
+```
+{
+  type: "STATE_UPDATE",
+  players: [...]
+}
+```
+
+---
+
+# API Server Responsibilities
+
+The API server manages persistent systems.
+
+Example responsibilities:
+
+* authentication
+* user accounts
+* asset metadata
+* world configuration
+
+Example endpoints:
+
+```
+POST /auth/login
+GET /user
+GET /world
+GET /assets
+```
+
+---
+
+# Database Layer
+
+Stores persistent data.
+
+Typical tables:
+
+```
+users
+rooms
+player_inventory
+world_config
+game_stats
+```
+
+Recommended databases:
+
+```
+MySQL
+PostgreSQL
+MongoDB
+```
+
+---
+
+# Redis Usage
+
+Redis is used for:
+
+```
+session cache
+pub/sub communication
+distributed rooms
+matchmaking
+```
+
+Example usage:
+
+```
+server1 -> publish player move
+server2 -> subscribe update
+```
+
+---
+
+# Hosting Strategy
+
+Recommended deployment:
+
+```
+Frontend
+  Vercel
+
+Realtime Server
+  Docker VPS
+
+API Server
+  Docker container
+
+Database
+  Managed DB service
+
+Assets
+  CDN
+```
+
+Example stack:
+
+```
+Cloudflare
+Vercel
+AWS / GCP / VPS
+Docker
+Redis
+MySQL
+```
+
+---
+
+# Multiplayer Scaling
+
+Initial stage:
+
+```
+Single Game Server
+```
+
+Scaled architecture:
+
+```
+Load Balancer
+      │
+Game Server 1
+Game Server 2
+Game Server 3
+```
+
+Redis used for cross-server communication.
+
+---
+
+# Performance Optimization
+
+## Rendering
+
+```
+InstancedMesh
+LOD
+Frustum Culling
+```
+
+## Assets
+
+```
+GLTF models
+KTX2 textures
+Compressed meshes
+```
+
+---
+
+# Recommended Tech Stack
+
+Frontend
+
+```
+Three.js
+TypeScript
+Vite
+WebGL
+```
+
+Backend
+
+```
+Node.js
+WebSocket
+Socket.IO
+```
+
+Infrastructure
+
+```
+Docker
+Redis
+MySQL
+CDN
+```
+
+---
+
+# Development Roadmap
+
+Recommended implementation order.
+
+### Step 1
+
+```
+Three.js single player scene
+```
+
+### Step 2
+
+```
+Add WebSocket connection
+```
+
+### Step 3
+
+```
+Synchronize player positions
+```
+
+### Step 4
+
+```
+Add rooms and multiplayer state
+```
+
+### Step 5
+
+```
+Add database and persistent accounts
+```
+
+---
+
+# Summary
+
+A scalable multiplayer 3D web architecture requires:
+
+* browser rendering engine
+* realtime networking layer
+* authoritative game server
+* persistent backend services
+* scalable infrastructure
+
+Separating these layers early makes the project easier to scale and maintain.

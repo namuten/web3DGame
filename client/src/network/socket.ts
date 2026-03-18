@@ -9,7 +9,8 @@ import { createNameTag } from '../game/nameTag';
 import { otherPlayers } from './players';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
-export const socket: Socket = io('http://localhost:3000', { autoConnect: false });
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+export const socket: Socket = io(SERVER_URL, { autoConnect: false });
 
 // 이름표 스프라이트 직접 참조 Map (getObjectByName 대신)
 const nameTags: Record<string, THREE.Group | THREE.Mesh> = {};

@@ -42,6 +42,7 @@ io.on('connection', (socket: Socket) => {
     quaternion: { _x: 0, _y: 0, _z: 0, _w: 1 },
     bodyColor: bodyColors[Math.floor(Math.random() * bodyColors.length)],
     flowerColor: 0xffffff,
+    hp: 100, // HP 초기화
   };
 
   // 이름 설정 이벤트
@@ -84,6 +85,34 @@ io.on('connection', (socket: Socket) => {
         quaternion: data.quaternion,
         upperYaw: data.upperYaw
       });
+    }
+  });
+
+  // 데미지 처리 이벤트
+  socket.on('TAKE_DAMAGE', (data: { targetId: string, damage: number, shooterId: string, direction: {x: number, y: number, z: number} }) => {
+    const target = players[data.targetId];
+    if (target && target.hp > 0) {
+      target.hp -= data.damage;
+      const room = target.room || DEFAULT_ROOM;
+
+      // 데미지 발생 알림 브로드캐스트
+      io.to(room).emit('PLAYER_DAMAGED', {
+        targetId: data.targetId,
+        hp: target.hp,
+        shooterId: data.shooterId,
+        direction: data.direction
+      });
+
+      // 사망 처리
+      if (target.hp <= 0) {
+        target.hp = 100;
+        target.position = { x: (Math.random() - 0.5) * 20, y: 1, z: (Math.random() - 0.5) * 20 };
+        io.to(room).emit('PLAYER_RESPAWN', {
+          id: data.targetId,
+          hp: target.hp,
+          position: target.position
+        });
+      }
     }
   });
 

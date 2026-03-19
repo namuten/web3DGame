@@ -100,6 +100,27 @@ socket.on('player_left', (id: string) => {
   }
 });
 
+// 데미지 수신 처리
+socket.on('PLAYER_DAMAGED', (data: { targetId: string, hp: number, shooterId: string, direction: {x: number, y: number, z: number} }) => {
+  const dir = new THREE.Vector3(data.direction.x, data.direction.y, data.direction.z);
+  
+  if (data.targetId === socket.id) {
+    // 내가 맞았을 때
+    import('../game/player').then(m => m.applyDamage(data.hp, dir));
+  } else if (otherPlayers[data.targetId]) {
+    // 남이 맞았을 때 (깜빡임 효과 등 나중에 추가 가능)
+  }
+});
+
+// 리스폰 수신 처리
+socket.on('PLAYER_RESPAWN', (data: { id: string, hp: number, position: {x: number, y: number, z: number} }) => {
+  if (data.id === socket.id) {
+    import('../game/player').then(m => m.respawnPlayer(data.hp, data.position));
+  } else if (otherPlayers[data.id]) {
+    otherPlayers[data.id].position.set(data.position.x, data.position.y, data.position.z);
+  }
+});
+
 function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number}, bodyColor: number = 0xffb7b2, _flowerColor: number = 0xffd1dc, name: string = '익명') {
   if(otherPlayers[id]) return;
 
@@ -107,6 +128,7 @@ function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number
 
   const model = createCharacterModel(bodyColor, bodyColor);
   model.position.set(initialPos.x, initialPos.y, initialPos.z);
+  model.userData = { playerId: id }; // 충돌 판별을 위해 ID 저장
 
   // 이름표 추가
   const tag = createNameTag(name);

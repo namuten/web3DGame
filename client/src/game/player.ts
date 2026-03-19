@@ -59,6 +59,28 @@ const GROUND_Y = 0;
 let verticalVelocity = 0;
 let isOnGround = true;
 
+// ─── HP & HUD ────────────────────────────────────────────────
+let hp = 100;
+let hpHUD: HTMLDivElement | null = null;
+const updateHPHUD = () => {
+  if (hpHUD) {
+    hpHUD.innerText = `HP: ${Math.max(0, Math.round(hp))}`;
+    hpHUD.style.width = `${Math.max(0, hp)}%`;
+    if (hp < 30) hpHUD.style.backgroundColor = '#ff4d4d';
+    else if (hp < 60) hpHUD.style.backgroundColor = '#ffd93d';
+    else hpHUD.style.backgroundColor = '#6bcb77';
+  }
+};
+
+// ─── 넉백 물리 ───────────────────────────────────────────────
+const knockbackVelocity = new THREE.Vector3();
+const KNOCKBACK_DECAY = 0.92;
+
+// ─── 데미지 시각 효과 ──────────────────────────────────────────
+let damageFlashTimer = 0;
+const flashMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 2 });
+let originalMaterials: Map<THREE.Mesh, THREE.Material | THREE.Material[]> = new Map();
+
 // 상체 회전 보간 변수
 let currentUpperYaw = 0;
 export const getUpperYaw = () => currentUpperYaw;
@@ -133,6 +155,29 @@ export const initPlayer = () => {
   `;
   document.body.appendChild(hint);
 
+  // HP HUD 생성
+  const hpContainer = document.createElement('div');
+  hpContainer.style.cssText = `
+    position: absolute; bottom: 30px; left: 50%;
+    transform: translateX(-50%);
+    width: 250px; height: 24px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid #fff; border-radius: 12px;
+    overflow: hidden;
+  `;
+  hpHUD = document.createElement('div');
+  hpHUD.style.cssText = `
+    width: 100%; height: 100%;
+    background: #6bcb77;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: bold; font-family: sans-serif;
+    font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  `;
+  hpHUD.innerText = `HP: 100`;
+  hpContainer.appendChild(hpHUD);
+  document.body.appendChild(hpContainer);
+
   // 키 이벤트 등록
   window.addEventListener('keydown', (e) => {
     // 채팅 중엔 게임 조작 무시
@@ -169,6 +214,19 @@ export const initPlayer = () => {
 
 // ─── 매 프레임 업데이트 ───────────────────────────────────────
 export const updatePlayer = (deltaTime: number) => {
+  // -- 데미지 이펙트 타이머 업데이트 --
+  if (damageFlashTimer > 0) {
+    damageFlashTimer -= deltaTime;
+    if (damageFlashTimer <= 0) {
+      // 원래 머티리얼로 복구
+      playerMesh.traverse((child) => {
+        if (child instanceof THREE.Mesh && originalMaterials.has(child)) {
+          child.material = originalMaterials.get(child)!;
+        }
+      });
+    }
+  }
+
   // -- 카메라 회전 가속도 적용 (관성 시스템) --
   if (keys.arrowLeft)  thetaVelocity += ROTATION_ACCEL * deltaTime;
   if (keys.arrowRight) thetaVelocity -= ROTATION_ACCEL * deltaTime;
@@ -205,6 +263,14 @@ export const updatePlayer = (deltaTime: number) => {
   if (keys.s) playerVelocity.sub(camHorizontalForward);
   if (keys.a) playerVelocity.sub(camHorizontalRight);
   if (keys.d) playerVelocity.add(camHorizontalRight);
+
+  // -- 넉백 처리 및 최종 속력 계산 --
+  if (knockbackVelocity.lengthSq() > 0.01) {
+    playerVelocity.add(knockbackVelocity);
+    knockbackVelocity.multiplyScalar(KNOCKBACK_DECAY);
+  } else {
+    knockbackVelocity.set(0, 0, 0);
+  }
 
   // -- 캐릭터 회전 (항상 카메라의 수평 정면을 바라보도록 고정) --
   // 이를 통해 'S'키를 눌러 뒤로 갈 때 몸을 돌리지 않고 뒷걸음질(뒷모습 유지)을 치게 됩니다.
@@ -354,4 +420,35 @@ export const updatePlayer = (deltaTime: number) => {
   const idealLookAt = playerMesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
   smoothLookAtPos.lerp(idealLookAt, Math.min(10 * deltaTime, 1.0));
   camera.lookAt(smoothLookAtPos);
+};
+
+// ─── 데미지 및 외부 상태 제어 API ──────────────────────────────
+export const applyDamage = (newHP: number, direction?: THREE.Vector3) => {
+  hp = newHP;
+  updateHPHUD();
+
+  // 피격 빨간색 깜빡임 효과
+  damageFlashTimer = 0.15;
+  originalMaterials.clear();
+  playerMesh.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      originalMaterials.set(child, child.material);
+      child.material = flashMaterial;
+    }
+  });
+
+  // 넉백 적용
+  if (direction) {
+    const kb = direction.clone().normalize().multiplyScalar(1.5); // 넉백 강도
+    kb.y = 0.5; // 약간 위로 뜨게
+    knockbackVelocity.add(kb);
+  }
+};
+
+export const respawnPlayer = (newHP: number, position: {x: number, y: number, z: number}) => {
+  hp = newHP;
+  updateHPHUD();
+  playerMesh.position.set(position.x, position.y, position.z);
+  knockbackVelocity.set(0, 0, 0);
+  verticalVelocity = 0;
 };

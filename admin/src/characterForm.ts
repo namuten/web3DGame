@@ -1,0 +1,125 @@
+import { CharacterData, createCharacter, updateCharacter } from './api';
+import { Preview3D } from './preview3d';
+
+let preview: Preview3D | null = null;
+
+const defaultChar = (): Omit<CharacterData, '_id'> => ({
+  name: '',
+  description: '',
+  bodyColor: '#FFB7B2',
+  flowerColor: '#FFB7B2',
+  visorColor: '#333333',
+  flowerType: 'daisy',
+});
+
+export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
+  const container = document.getElementById('form-container')!;
+  const data = char ? { ...char } : defaultChar();
+
+  container.innerHTML = `
+    <h2 style="margin-bottom:20px;font-size:16px;">${char ? '캐릭터 편집' : '새 캐릭터'}</h2>
+    <div class="form-group">
+      <label>이름 *</label>
+      <input id="f-name" type="text" maxlength="20" value="${data.name}" placeholder="캐릭터 이름 (최대 20자)" />
+    </div>
+    <div class="form-group">
+      <label>설명</label>
+      <input id="f-desc" type="text" maxlength="100" value="${data.description || ''}" placeholder="설명 (최대 100자)" />
+    </div>
+    <div class="form-group">
+      <label>바디 컬러</label>
+      <div class="color-row">
+        <input id="f-body" type="color" value="${data.bodyColor}" />
+        <input id="f-body-text" type="text" value="${data.bodyColor}" maxlength="7" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>꽃 컬러</label>
+      <div class="color-row">
+        <input id="f-flower" type="color" value="${data.flowerColor}" />
+        <input id="f-flower-text" type="text" value="${data.flowerColor}" maxlength="7" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>바이저 색</label>
+      <div class="color-row">
+        <input id="f-visor" type="color" value="${data.visorColor}" />
+        <input id="f-visor-text" type="text" value="${data.visorColor}" maxlength="7" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>꽃 종류</label>
+      <select id="f-type">
+        <option value="daisy" ${data.flowerType === 'daisy' ? 'selected' : ''}>Daisy (데이지)</option>
+      </select>
+    </div>
+    <canvas id="preview-canvas"></canvas>
+    <div class="form-actions">
+      <button id="save-btn">저장</button>
+      <button id="cancel-btn">취소</button>
+    </div>
+  `;
+
+  // 3D 미리보기 초기화
+  const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
+  canvas.width = canvas.clientWidth || 400;
+  canvas.height = 220;
+  if (preview) preview.destroy();
+  preview = new Preview3D(canvas);
+  preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor);
+
+  // 색상 입력 동기화 헬퍼
+  const syncColor = (pickerId: string, textId: string, colorType: 'body' | 'flower' | 'visor') => {
+    const picker = document.getElementById(pickerId) as HTMLInputElement;
+    const text = document.getElementById(textId) as HTMLInputElement;
+
+    picker.addEventListener('input', (e) => {
+      const val = (e.target as HTMLInputElement).value;
+      text.value = val;
+      preview?.updateColor(colorType, val);
+    });
+
+    text.addEventListener('input', (e) => {
+      const val = (e.target as HTMLInputElement).value;
+      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+        picker.value = val;
+        preview?.updateColor(colorType, val);
+      }
+    });
+  };
+
+  syncColor('f-body', 'f-body-text', 'body');
+  syncColor('f-flower', 'f-flower-text', 'flower');
+  syncColor('f-visor', 'f-visor-text', 'visor');
+
+  // 저장
+  document.getElementById('save-btn')!.addEventListener('click', async () => {
+    const payload: Omit<CharacterData, '_id'> = {
+      name: (document.getElementById('f-name') as HTMLInputElement).value.trim(),
+      description: (document.getElementById('f-desc') as HTMLInputElement).value.trim(),
+      bodyColor: (document.getElementById('f-body') as HTMLInputElement).value,
+      flowerColor: (document.getElementById('f-flower') as HTMLInputElement).value,
+      visorColor: (document.getElementById('f-visor') as HTMLInputElement).value,
+      flowerType: (document.getElementById('f-type') as HTMLSelectElement).value,
+    };
+
+    if (!payload.name) { alert('이름을 입력해주세요.'); return; }
+
+    try {
+      if (char?._id) {
+        await updateCharacter(char._id, payload);
+      } else {
+        await createCharacter(payload);
+      }
+      onSaved();
+    } catch (err: any) {
+      alert('저장 실패: ' + err.message);
+    }
+  });
+
+  // 취소
+  document.getElementById('cancel-btn')!.addEventListener('click', () => {
+    container.innerHTML = '<p style="color:#aaa;padding:20px;">좌측에서 캐릭터를 선택하거나 새 캐릭터를 추가하세요.</p>';
+    if (preview) { preview.destroy(); preview = null; }
+  });
+};

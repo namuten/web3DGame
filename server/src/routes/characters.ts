@@ -9,8 +9,8 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const characters = await Character.findAll();
     res.json(characters);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch characters' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch characters', message: err.message });
   }
 });
 
@@ -21,8 +21,8 @@ router.get('/:id', async (req: Request, res: Response) => {
     const character = await Character.findById(id);
     if (!character) return res.status(404).json({ error: 'Not found' });
     res.json(character);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch character' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch character', message: err.message });
   }
 });
 
@@ -36,7 +36,7 @@ router.post('/', async (req: Request, res: Response) => {
     const character = await Character.create({ name, description, bodyColor, flowerColor, visorColor, flowerType });
     res.status(201).json(character);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'Failed to create', message: err.message });
   }
 });
 
@@ -48,7 +48,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (!character) return res.status(404).json({ error: 'Not found' });
     res.json(character);
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'Failed to update', message: err.message });
   }
 });
 
@@ -59,8 +59,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const deleted = await Character.remove(id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to delete' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to delete', message: err.message });
   }
 });
 

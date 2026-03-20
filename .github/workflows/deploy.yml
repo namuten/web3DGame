@@ -39,3 +39,20 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-to-server:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to IP Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd ~/nagee/web3DGame
+            git fetch origin main
+            git reset --hard origin/main
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            docker-compose up -d --build --force-recreate

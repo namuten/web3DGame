@@ -24,7 +24,7 @@ services:
       - DB_PORT=3306
       - DB_NAME=twdb
       - DB_USER=twuser
-      - DB_PASSWORD=your_password_here
+      - DB_PASSWORD=${DB_PASSWORD}
     restart: always
     logging:
       driver: "json-file"

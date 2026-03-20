@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createCharacterModel } from '../game/characterModel';
 import { toThreeColor } from '../utils';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://nagee.onrender.com';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://220.85.41.214:3000';
 
 export interface CharacterSelection {
   playerName: string;

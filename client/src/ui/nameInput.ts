@@ -50,8 +50,10 @@ export const showNameInput = (): Promise<string> => {
       const name = input.value.trim() || '익명';
       overlay.style.transition = 'opacity 0.4s';
       overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 400);
-      resolve(name);
+      setTimeout(() => {
+        overlay.remove();
+        resolve(name);
+      }, 400);
     };
 
     btn.addEventListener('click', submit);

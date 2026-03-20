@@ -16,13 +16,16 @@ playerMesh.add(characterModel);
 let localBodyColor: number = 0xffb7b2;
 export const getLocalBodyColor = () => localBodyColor;
 
-export const setPlayerColor = (bodyColor: number, _flowerColor: number) => {
+export const setPlayerColor = (bodyColor: number, flowerColor: number, visorColor?: number) => {
   localBodyColor = bodyColor;
   if ((characterModel as any).setBodyColor) {
     (characterModel as any).setBodyColor(bodyColor);
   }
   if ((characterModel as any).setFlowerColor) {
-    (characterModel as any).setFlowerColor(bodyColor);
+    (characterModel as any).setFlowerColor(flowerColor);
+  }
+  if (visorColor !== undefined && (characterModel as any).setVisorColor) {
+    (characterModel as any).setVisorColor(visorColor);
   }
 };
 
@@ -37,7 +40,7 @@ const keys = {
 // ─── 궤도 카메라 (Spherical Orbit) 파라미터 ───────────────────
 let cameraTheta = Math.PI;
 export let cameraPhi = Math.PI / 2.8;
-const CAMERA_DIST = 14;       
+const CAMERA_DIST = 14;
 
 // 카메라 회전 관성 변수
 let thetaVelocity = 0;
@@ -45,8 +48,8 @@ let phiVelocity = 0;
 const ROTATION_ACCEL = 5.0;   // 회전 가속도
 const ROTATION_FRICTION = 0.92; // 마찰력 (자연스러운 멈춤)
 
-const PHI_MIN = 0.1;          
-export const PHI_MAX = Math.PI / 2.2; 
+const PHI_MIN = 0.1;
+export const PHI_MAX = Math.PI / 2.2;
 
 // 카메라 보간 변수
 const currentCameraPos = new THREE.Vector3(0, 4, 14);
@@ -58,6 +61,32 @@ const JUMP_FORCE = 12;
 const GROUND_Y = 0;
 let verticalVelocity = 0;
 let isOnGround = true;
+
+// ─── HP & HUD ────────────────────────────────────────────────
+let hp = 100;
+(window as any).debugSetHP = (val: number) => {
+  hp = val;
+  updateHPHUD();
+};
+let hpHUD: HTMLDivElement | null = null;
+const updateHPHUD = () => {
+  if (hpHUD) {
+    hpHUD.innerText = `HP: ${Math.max(0, Math.round(hp))}`;
+    hpHUD.style.width = `${Math.max(0, hp)}%`;
+    if (hp < 30) hpHUD.style.backgroundColor = '#ff4d4d';
+    else if (hp < 60) hpHUD.style.backgroundColor = '#ffd93d';
+    else hpHUD.style.backgroundColor = '#6bcb77';
+  }
+};
+
+// ─── 넉백 물리 ───────────────────────────────────────────────
+const knockbackVelocity = new THREE.Vector3();
+const KNOCKBACK_DECAY = 0.92;
+
+// ─── 데미지 시각 효과 ──────────────────────────────────────────
+let damageFlashTimer = 0;
+const flashMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 2 });
+let originalMaterials: Map<THREE.Mesh, THREE.Material | THREE.Material[]> = new Map();
 
 // 상체 회전 보간 변수
 let currentUpperYaw = 0;
@@ -71,7 +100,7 @@ const SPRING_K = 18;   // 탄성 (클수록 빠르게 복원)
 const SPRING_D = 5.5;  // 감쇠 (클수록 빨리 멈춤)
 
 // ─── 이동 속도 ────────────────────────────────────────────────
-const speed = 12;
+const BASE_SPEED = 12;
 const playerVelocity = new THREE.Vector3();
 const targetRotation = new THREE.Quaternion();
 
@@ -133,6 +162,29 @@ export const initPlayer = () => {
   `;
   document.body.appendChild(hint);
 
+  // HP HUD 생성
+  const hpContainer = document.createElement('div');
+  hpContainer.style.cssText = `
+    position: absolute; bottom: 30px; left: 50%;
+    transform: translateX(-50%);
+    width: 250px; height: 24px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid #fff; border-radius: 12px;
+    overflow: hidden;
+  `;
+  hpHUD = document.createElement('div');
+  hpHUD.style.cssText = `
+    width: 100%; height: 100%;
+    background: #6bcb77;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: bold; font-family: sans-serif;
+    font-size: 14px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  `;
+  hpHUD.innerText = `HP: 100`;
+  hpContainer.appendChild(hpHUD);
+  document.body.appendChild(hpContainer);
+
   // 키 이벤트 등록
   window.addEventListener('keydown', (e) => {
     // 채팅 중엔 게임 조작 무시
@@ -142,13 +194,13 @@ export const initPlayer = () => {
     if (e.code === 'KeyA') keys.a = true;
     if (e.code === 'KeyS') keys.s = true;
     if (e.code === 'KeyD') keys.d = true;
-    if (e.code === 'ArrowLeft')  keys.arrowLeft  = true;
+    if (e.code === 'ArrowLeft') keys.arrowLeft = true;
     if (e.code === 'ArrowRight') keys.arrowRight = true;
-    if (e.code === 'ArrowUp')    keys.arrowUp    = true;
-    if (e.code === 'ArrowDown')  keys.arrowDown  = true;
+    if (e.code === 'ArrowUp') keys.arrowUp = true;
+    if (e.code === 'ArrowDown') keys.arrowDown = true;
 
-    // 점프
-    if (e.code === 'Space' && isOnGround) {
+    // 점프 (HP가 0이면 불가)
+    if (hp > 0 && e.code === 'Space' && isOnGround) {
       verticalVelocity = JUMP_FORCE;
       isOnGround = false;
       e.preventDefault(); // 스크롤 방지
@@ -160,28 +212,41 @@ export const initPlayer = () => {
     if (e.code === 'KeyA') keys.a = false;
     if (e.code === 'KeyS') keys.s = false;
     if (e.code === 'KeyD') keys.d = false;
-    if (e.code === 'ArrowLeft')  keys.arrowLeft  = false;
+    if (e.code === 'ArrowLeft') keys.arrowLeft = false;
     if (e.code === 'ArrowRight') keys.arrowRight = false;
-    if (e.code === 'ArrowUp')    keys.arrowUp    = false;
-    if (e.code === 'ArrowDown')  keys.arrowDown  = false;
+    if (e.code === 'ArrowUp') keys.arrowUp = false;
+    if (e.code === 'ArrowDown') keys.arrowDown = false;
   });
 };
 
 // ─── 매 프레임 업데이트 ───────────────────────────────────────
 export const updatePlayer = (deltaTime: number) => {
+  // -- 데미지 이펙트 타이머 업데이트 --
+  if (damageFlashTimer > 0) {
+    damageFlashTimer -= deltaTime;
+    if (damageFlashTimer <= 0) {
+      // 원래 머티리얼로 복구
+      playerMesh.traverse((child) => {
+        if (child instanceof THREE.Mesh && originalMaterials.has(child)) {
+          child.material = originalMaterials.get(child)!;
+        }
+      });
+    }
+  }
+
   // -- 카메라 회전 가속도 적용 (관성 시스템) --
-  if (keys.arrowLeft)  thetaVelocity += ROTATION_ACCEL * deltaTime;
+  if (keys.arrowLeft) thetaVelocity += ROTATION_ACCEL * deltaTime;
   if (keys.arrowRight) thetaVelocity -= ROTATION_ACCEL * deltaTime;
-  if (keys.arrowUp)    phiVelocity   -= ROTATION_ACCEL * deltaTime;
-  if (keys.arrowDown)  phiVelocity   += ROTATION_ACCEL * deltaTime;
+  if (keys.arrowUp) phiVelocity -= ROTATION_ACCEL * deltaTime;
+  if (keys.arrowDown) phiVelocity += ROTATION_ACCEL * deltaTime;
 
   // 값 갱신
   cameraTheta += thetaVelocity * deltaTime;
-  cameraPhi   += phiVelocity * deltaTime;
+  cameraPhi += phiVelocity * deltaTime;
 
   // 마찰력 적용 (자연스럽게 감속)
   thetaVelocity *= ROTATION_FRICTION;
-  phiVelocity   *= ROTATION_FRICTION;
+  phiVelocity *= ROTATION_FRICTION;
 
   // 범위 제한
   cameraPhi = Math.max(PHI_MIN, Math.min(PHI_MAX, cameraPhi));
@@ -201,10 +266,22 @@ export const updatePlayer = (deltaTime: number) => {
 
   // -- WASD 이동 (카메라 수평 방향 기준) --
   playerVelocity.set(0, 0, 0);
-  if (keys.w) playerVelocity.add(camHorizontalForward);
-  if (keys.s) playerVelocity.sub(camHorizontalForward);
-  if (keys.a) playerVelocity.sub(camHorizontalRight);
-  if (keys.d) playerVelocity.add(camHorizontalRight);
+
+  // HP가 0이면 이동 차단 (시선 회전만 가능)
+  if (hp > 0) {
+    if (keys.w) playerVelocity.add(camHorizontalForward);
+    if (keys.s) playerVelocity.sub(camHorizontalForward);
+    if (keys.a) playerVelocity.sub(camHorizontalRight);
+    if (keys.d) playerVelocity.add(camHorizontalRight);
+  }
+
+  // -- 넉백 처리 및 최종 속력 계산 --
+  if (knockbackVelocity.lengthSq() > 0.01) {
+    playerVelocity.add(knockbackVelocity);
+    knockbackVelocity.multiplyScalar(KNOCKBACK_DECAY);
+  } else {
+    knockbackVelocity.set(0, 0, 0);
+  }
 
   // -- 캐릭터 회전 (항상 카메라의 수평 정면을 바라보도록 고정) --
   // 이를 통해 'S'키를 눌러 뒤로 갈 때 몸을 돌리지 않고 뒷걸음질(뒷모습 유지)을 치게 됩니다.
@@ -215,9 +292,12 @@ export const updatePlayer = (deltaTime: number) => {
   if (playerVelocity.lengthSq() > 0) {
     playerVelocity.normalize();
 
+    // HP에 따른 동적 속도 계산 (HP 100 = 100%, HP 50 = 50%)
+    const currentSpeed = BASE_SPEED * (hp / 100);
+
     // 이동 위치 계산 및 충돌 처리 (슬라이딩 로직)
-    const moveStep = playerVelocity.clone().multiplyScalar(speed * deltaTime);
-    
+    const moveStep = playerVelocity.clone().multiplyScalar(currentSpeed * deltaTime);
+
     // 1. X, Z 동시 이동 시도
     const testPosAll = playerMesh.position.clone().add(moveStep);
     if (!checkCollision(testPosAll)) {
@@ -229,7 +309,7 @@ export const updatePlayer = (deltaTime: number) => {
       if (!checkCollision(testPosX)) {
         playerMesh.position.x = testPosX.x;
       }
-      
+
       // 3. Z축만 이동 시도
       const testPosZ = playerMesh.position.clone();
       testPosZ.z += moveStep.z;
@@ -253,9 +333,9 @@ export const updatePlayer = (deltaTime: number) => {
     const pz = playerMesh.position.z;
     const halfW = 0.38;
     const prevBottom = playerMesh.position.y + 0.1;
-    const prevTop    = playerMesh.position.y + 1.9;
-    const newBottom  = newY + 0.1;
-    const newTop     = newY + 1.9;
+    const prevTop = playerMesh.position.y + 1.9;
+    const newBottom = newY + 0.1;
+    const newTop = newY + 1.9;
 
     let blocked = false;
 
@@ -315,17 +395,17 @@ export const updatePlayer = (deltaTime: number) => {
     : 0;
 
   // 목표: 이동 반대 방향으로 쏠림
-  const targetFwd  = -movingFwd  * 0.9;
+  const targetFwd = -movingFwd * 0.9;
   const targetSide = movingSide * 0.6;
 
   // 스프링 공식: F = -k*(x - target) - d*v
-  const forceFwd  = (targetFwd  - flowerSpringFwd)  * SPRING_K - flowerSpringFwdVel  * SPRING_D;
+  const forceFwd = (targetFwd - flowerSpringFwd) * SPRING_K - flowerSpringFwdVel * SPRING_D;
   const forceSide = (targetSide - flowerSpringSide) * SPRING_K - flowerSpringSideVel * SPRING_D;
 
-  flowerSpringFwdVel  += forceFwd  * deltaTime;
+  flowerSpringFwdVel += forceFwd * deltaTime;
   flowerSpringSideVel += forceSide * deltaTime;
-  flowerSpringFwd     += flowerSpringFwdVel  * deltaTime;
-  flowerSpringSide    += flowerSpringSideVel * deltaTime;
+  flowerSpringFwd += flowerSpringFwdVel * deltaTime;
+  flowerSpringSide += flowerSpringSideVel * deltaTime;
 
   if ((characterModel as any).updateFlowerPhysics) {
     (characterModel as any).updateFlowerPhysics(flowerSpringFwd, flowerSpringSide);
@@ -342,12 +422,26 @@ export const updatePlayer = (deltaTime: number) => {
 
   // 상체 회전 범위를 -90도 ~ 90도로 제한 (허리가 꼬이지 않게)
   const clampedYaw = Math.max(-Math.PI * 0.4, Math.min(Math.PI * 0.4, relativeYaw));
-  
+
   // 부드럽게 보간 (Snap 방지)
   currentUpperYaw = THREE.MathUtils.lerp(currentUpperYaw, clampedYaw, Math.min(UPPER_LERP_SPEED * deltaTime, 1.0));
-  
+
   if ((characterModel as any).setUpperRotation) {
     (characterModel as any).setUpperRotation(currentUpperYaw);
+  }
+
+  // -- HP 기반 시각 효과 (Shake/Tilt) --
+  if (hp <= 40 && hp > 0) {
+    // 셰이크 강도: HP가 낮을수록 더 심하게 떰
+    const shakeIntensity = (1 - hp / 40) * 0.05;
+    playerMesh.rotation.z = Math.sin(performance.now() * 0.03) * shakeIntensity;
+    playerMesh.rotation.x = Math.cos(performance.now() * 0.02) * shakeIntensity;
+  } else if (hp <= 0) {
+    // 사망 시 옆으로 약간 기울어짐 (무력화된 느낌)
+    playerMesh.rotation.z = Math.PI / 2.5;
+  } else {
+    playerMesh.rotation.z = 0;
+    playerMesh.rotation.x = 0;
   }
 
   // 카메라가 플레이어를 부드럽게 주시
@@ -355,3 +449,38 @@ export const updatePlayer = (deltaTime: number) => {
   smoothLookAtPos.lerp(idealLookAt, Math.min(10 * deltaTime, 1.0));
   camera.lookAt(smoothLookAtPos);
 };
+
+// ─── 데미지 및 외부 상태 제어 API ──────────────────────────────
+export const applyDamage = (newHP: number, direction?: THREE.Vector3) => {
+  const isDamage = newHP < hp;
+  hp = newHP;
+  updateHPHUD();
+
+  if (isDamage) {
+    // 데미지를 입었을 때만 빨간색 깜빡임 효과
+    damageFlashTimer = 0.15;
+    originalMaterials.clear();
+    playerMesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        originalMaterials.set(child, child.material);
+        child.material = flashMaterial;
+      }
+    });
+
+    // 넉백 적용
+    if (direction) {
+      const kb = direction.clone().normalize().multiplyScalar(1.5); // 넉백 강도
+      kb.y = 0.5; // 약간 위로 뜨게
+      knockbackVelocity.add(kb);
+    }
+  }
+};
+
+export const respawnPlayer = (newHP: number, position: { x: number, y: number, z: number }) => {
+  hp = newHP;
+  updateHPHUD();
+  playerMesh.position.set(position.x, position.y, position.z);
+  knockbackVelocity.set(0, 0, 0);
+  verticalVelocity = 0;
+};
+

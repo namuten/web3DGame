@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
 import { playerMesh, cameraPhi, PHI_MAX, getLocalBodyColor } from './player';
+import { otherPlayers } from '../network/players';
+import { socket } from '../network/socket';
 
 // ─── 탄환 데이터 구조 ─────────────────────────────────────────
 interface Bullet {
@@ -73,15 +75,20 @@ export const fireBullet = () => {
     return;
   }
 
-  // 발사 방향 (캐릭터가 보고 있는 정면)
-  const dir = new THREE.Vector3(0, 0, 1);
+  // 발사 방향 계산 (카메라 시선 방향 반영)
+  // cameraPhi가 작을수록 위에서 아래를 보는 것이므로, 아래로 더 많이 꺾어야 함
+  // PHI_MAX일 때(약 81도) 거의 수평, PHI_MIN일 때(약 5도) 거의 수직 하강
+  const verticalAngle = (cameraPhi / PHI_MAX) - 1.1; // -1.0 ~ 0 사이의 값으로 아래 조준
+  
+  const dir = new THREE.Vector3(0, verticalAngle, 1);
   dir.applyQuaternion(playerMesh.quaternion);
   dir.normalize();
 
-  // 발사 기점 (실시간으로 구부러지는 꽃 머리 위치 계산)
+  // 발사 기점 (머리 위 꽃 위치로 원복)
+  // 캐릭터 위(1.6) + 줄기 길이(0.8) + 기울기에 따른 보정
   const tiltFactor = (cameraPhi / PHI_MAX) * 1.5;
   const topZ = 0.3 * tiltFactor;
-  const topY = 1.6 + 0.8; // 캐릭터 위(1.6) + 줄기 길이(0.8)
+  const topY = 1.6 + 0.8; 
   
   const origin = playerMesh.position.clone()
     .add(new THREE.Vector3(0, topY, topZ).applyQuaternion(playerMesh.quaternion));
@@ -124,13 +131,66 @@ export const updateBullets = (deltaTime: number) => {
     const moveStep = b.velocity.clone().multiplyScalar(deltaTime);
     const endPos = startPos.clone().add(moveStep);
 
-    // 충돌 검사
+    // 충돌 검사 대상을 합침 (월드 장애물 + 다른 플레이어들)
+    const playersToHit = Object.values(otherPlayers);
+    const targets = [...collidables, ...playersToHit];
+
+    // 레이캐스팅 전 월드 행렬 강제 업데이트 (위치 오차 방지)
+    targets.forEach(t => t.updateMatrixWorld());
+
     raycaster.set(startPos, b.velocity.clone().normalize());
-    raycaster.far = moveStep.length() + 0.5;
-    const intersects = raycaster.intersectObjects(collidables, false);
+    raycaster.far = moveStep.length() + 1.2; // 여유 범위 확대
+    const intersects = raycaster.intersectObjects(targets, true);
+
+    let hitOccurred = false;
 
     if (intersects.length > 0) {
+      const hitObj = intersects[0].object;
       spawnImpact(intersects[0].point);
+
+      // 내가 쏜 탄환이 다른 누군가를 맞췄을 때
+      if (b.ownerId === 'local') {
+        let current: THREE.Object3D | null = hitObj;
+        let targetId: string | null = null;
+        while (current) {
+          if (current.userData && current.userData.playerId) {
+            targetId = current.userData.playerId;
+            break;
+          }
+          current = current.parent;
+        }
+
+        if (targetId) {
+          socket.emit('TAKE_DAMAGE', {
+            targetId: targetId,
+            damage: 15,
+            shooterId: socket.id,
+            direction: b.velocity.clone().normalize()
+          });
+        }
+      }
+      hitOccurred = true;
+    } 
+    // 보조 수단: 레이캐스트 실패 시 플레이어 거리 기반 판정 (중심 거리 1.0 이내)
+    else if (b.ownerId === 'local') {
+      for (const id in otherPlayers) {
+        const other = otherPlayers[id];
+        const dist = endPos.distanceTo(other.position);
+        if (dist < 1.2) { // 캡슐 반경 0.5 + 탄환 반경 0.5 + 여유 0.2
+          spawnImpact(endPos);
+          socket.emit('TAKE_DAMAGE', {
+            targetId: id,
+            damage: 15,
+            shooterId: socket.id,
+            direction: b.velocity.clone().normalize()
+          });
+          hitOccurred = true;
+          break;
+        }
+      }
+    }
+
+    if (hitOccurred) {
       removeBullet(i);
     } else {
       b.mesh.position.copy(endPos);

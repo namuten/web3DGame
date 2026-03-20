@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /Users/nagee/git/web3DGame/server/.env*)"
+    ]
+  }
+}

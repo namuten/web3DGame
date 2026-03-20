@@ -69,6 +69,9 @@ export const initWorld = () => {
   floor.receiveShadow = true;
   scene.add(floor);
 
+  // 탄환 충돌 대상으로 등록 (바닥 추가)
+  worldCollidables.push(floor);
+
   // 시드 기반 난수 (모든 클라이언트 동일한 월드 생성)
   let seed = 42;
   const seededRandom = () => {

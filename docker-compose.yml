@@ -31,3 +31,15 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  web3d-admin:
+    build: ./admin
+    container_name: web3d-admin
+    ports:
+      - "81:80"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

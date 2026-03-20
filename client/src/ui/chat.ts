@@ -99,7 +99,7 @@ export const appendMessage = (sender: string, text: string, color: string = '#cc
 
     const msgEl = document.createElement('div');
     msgEl.style.color = '#E0E0FF';
-    msgEl.innerHTML = `<span style="color: ${color}; font-weight: bold;">[${sender.substring(0, 5)}]</span> ${text}`;
+    msgEl.innerHTML = `<span style="color: ${color}; font-weight: bold;">[${sender.substring(0, 12)}]</span> ${text}`;
     
     messagesDiv.appendChild(msgEl);
     messagesDiv.scrollTop = messagesDiv.scrollHeight; // 가장 아래로 스크롤

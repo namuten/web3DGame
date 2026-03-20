@@ -44,8 +44,11 @@ socket.on('current_players', (players: Record<string, any>) => {
     if (id !== socket.id) {
       addOtherPlayer(id, players[id].position, players[id].bodyColor, players[id].flowerColor, players[id].name);
     } else {
-      console.log(`[Socket] Setting local player color: Body=${players[id].bodyColor}, Flower=${players[id].flowerColor}`);
+      console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
       setPlayerColor(players[id].bodyColor, players[id].flowerColor);
+      if (players[id].hp !== undefined) {
+        import('../game/player').then(m => m.applyDamage(players[id].hp));
+      }
     }
   }
 });

@@ -29,14 +29,30 @@ export const createNameTag = (name: string): THREE.Group => {
   const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, W, H);
 
-  const fontSize = name.length > 6 ? 165 : 220;
+  // 텍스트 길이에 따른 동적 폰트 크기 계산 (최소 100px ~ 최대 220px)
+  let fontSize = 220;
+  if (name.length > 5) {
+    fontSize = Math.max(100, Math.floor(220 * (6.5 / name.length)));
+  }
+
   ctx.font = `900 ${fontSize}px Arial Black, Impact, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const chars = name.split('');
-  const charWidths = chars.map(ch => ctx.measureText(ch).width);
-  const totalW = charWidths.reduce((a, b) => a + b, 0);
+  let chars = name.split('');
+  let charWidths = chars.map(ch => ctx.measureText(ch).width);
+  let totalW = charWidths.reduce((a, b) => a + b, 0);
+
+  // 캔버스 너비를 초과할 경우 전체적으로 축소
+  const maxSafeW = W - 60; // 좌우 여백 30씩
+  if (totalW > maxSafeW) {
+    const scale = maxSafeW / totalW;
+    fontSize = Math.floor(fontSize * scale);
+    ctx.font = `900 ${fontSize}px Arial Black, Impact, sans-serif`;
+    charWidths = chars.map(ch => ctx.measureText(ch).width);
+    totalW = charWidths.reduce((a, b) => a + b, 0);
+  }
+
   let startX = W / 2 - totalW / 2;
 
   // ── 배경: 각 글자 뒤 스프레이 구름 ──

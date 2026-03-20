@@ -61,6 +61,10 @@ let isOnGround = true;
 
 // ─── HP & HUD ────────────────────────────────────────────────
 let hp = 100;
+(window as any).debugSetHP = (val: number) => {
+  hp = val;
+  updateHPHUD();
+};
 let hpHUD: HTMLDivElement | null = null;
 const updateHPHUD = () => {
   if (hpHUD) {
@@ -93,7 +97,7 @@ const SPRING_K = 18;   // 탄성 (클수록 빠르게 복원)
 const SPRING_D = 5.5;  // 감쇠 (클수록 빨리 멈춤)
 
 // ─── 이동 속도 ────────────────────────────────────────────────
-const speed = 12;
+const BASE_SPEED = 12;
 const playerVelocity = new THREE.Vector3();
 const targetRotation = new THREE.Quaternion();
 
@@ -192,8 +196,8 @@ export const initPlayer = () => {
     if (e.code === 'ArrowUp')    keys.arrowUp    = true;
     if (e.code === 'ArrowDown')  keys.arrowDown  = true;
 
-    // 점프
-    if (e.code === 'Space' && isOnGround) {
+    // 점프 (HP가 0이면 불가)
+    if (hp > 0 && e.code === 'Space' && isOnGround) {
       verticalVelocity = JUMP_FORCE;
       isOnGround = false;
       e.preventDefault(); // 스크롤 방지
@@ -259,10 +263,14 @@ export const updatePlayer = (deltaTime: number) => {
 
   // -- WASD 이동 (카메라 수평 방향 기준) --
   playerVelocity.set(0, 0, 0);
-  if (keys.w) playerVelocity.add(camHorizontalForward);
-  if (keys.s) playerVelocity.sub(camHorizontalForward);
-  if (keys.a) playerVelocity.sub(camHorizontalRight);
-  if (keys.d) playerVelocity.add(camHorizontalRight);
+  
+  // HP가 0이면 이동 차단 (시선 회전만 가능)
+  if (hp > 0) {
+    if (keys.w) playerVelocity.add(camHorizontalForward);
+    if (keys.s) playerVelocity.sub(camHorizontalForward);
+    if (keys.a) playerVelocity.sub(camHorizontalRight);
+    if (keys.d) playerVelocity.add(camHorizontalRight);
+  }
 
   // -- 넉백 처리 및 최종 속력 계산 --
   if (knockbackVelocity.lengthSq() > 0.01) {
@@ -280,9 +288,12 @@ export const updatePlayer = (deltaTime: number) => {
 
   if (playerVelocity.lengthSq() > 0) {
     playerVelocity.normalize();
+    
+    // HP에 따른 동적 속도 계산 (HP 100 = 100%, HP 50 = 50%)
+    const currentSpeed = BASE_SPEED * (hp / 100);
 
     // 이동 위치 계산 및 충돌 처리 (슬라이딩 로직)
-    const moveStep = playerVelocity.clone().multiplyScalar(speed * deltaTime);
+    const moveStep = playerVelocity.clone().multiplyScalar(currentSpeed * deltaTime);
     
     // 1. X, Z 동시 이동 시도
     const testPosAll = playerMesh.position.clone().add(moveStep);
@@ -416,6 +427,20 @@ export const updatePlayer = (deltaTime: number) => {
     (characterModel as any).setUpperRotation(currentUpperYaw);
   }
 
+  // -- HP 기반 시각 효과 (Shake/Tilt) --
+  if (hp <= 40 && hp > 0) {
+    // 셰이크 강도: HP가 낮을수록 더 심하게 떰
+    const shakeIntensity = (1 - hp / 40) * 0.05;
+    playerMesh.rotation.z = Math.sin(performance.now() * 0.03) * shakeIntensity;
+    playerMesh.rotation.x = Math.cos(performance.now() * 0.02) * shakeIntensity;
+  } else if (hp <= 0) {
+    // 사망 시 옆으로 약간 기울어짐 (무력화된 느낌)
+    playerMesh.rotation.z = Math.PI / 2.5;
+  } else {
+    playerMesh.rotation.z = 0;
+    playerMesh.rotation.x = 0;
+  }
+
   // 카메라가 플레이어를 부드럽게 주시
   const idealLookAt = playerMesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
   smoothLookAtPos.lerp(idealLookAt, Math.min(10 * deltaTime, 1.0));
@@ -424,24 +449,27 @@ export const updatePlayer = (deltaTime: number) => {
 
 // ─── 데미지 및 외부 상태 제어 API ──────────────────────────────
 export const applyDamage = (newHP: number, direction?: THREE.Vector3) => {
+  const isDamage = newHP < hp;
   hp = newHP;
   updateHPHUD();
 
-  // 피격 빨간색 깜빡임 효과
-  damageFlashTimer = 0.15;
-  originalMaterials.clear();
-  playerMesh.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      originalMaterials.set(child, child.material);
-      child.material = flashMaterial;
-    }
-  });
+  if (isDamage) {
+    // 데미지를 입었을 때만 빨간색 깜빡임 효과
+    damageFlashTimer = 0.15;
+    originalMaterials.clear();
+    playerMesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        originalMaterials.set(child, child.material);
+        child.material = flashMaterial;
+      }
+    });
 
-  // 넉백 적용
-  if (direction) {
-    const kb = direction.clone().normalize().multiplyScalar(1.5); // 넉백 강도
-    kb.y = 0.5; // 약간 위로 뜨게
-    knockbackVelocity.add(kb);
+    // 넉백 적용
+    if (direction) {
+      const kb = direction.clone().normalize().multiplyScalar(1.5); // 넉백 강도
+      kb.y = 0.5; // 약간 위로 뜨게
+      knockbackVelocity.add(kb);
+    }
   }
 };
 

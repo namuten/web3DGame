@@ -42,10 +42,9 @@ io.on('connection', (socket: Socket) => {
   // 기본 방에 접속시킴 (Room Scaling)
   socket.join(DEFAULT_ROOM);
 
-  // 새로운 플레이어 생성 (초기 위치, 회전값, 접속한 방, 색상 추가)
-  const bodyColors = [0xff6b6b, 0xff9f43, 0xffd32a, 0x6bcb77, 0x4dabf7, 0xcc5de8, 0xff6eb4, 0x38d9a9];
-
-  const playerName = String((socket.handshake.auth as any)?.playerName || '익명').slice(0, 12);
+  // 새로운 플레이어 생성 (캐릭터 선택 화면에서 전달된 데이터 사용)
+  const auth = socket.handshake.auth as any;
+  const playerName = String(auth?.playerName || '익명').slice(0, 12);
 
   players[socket.id] = {
     id: socket.id,
@@ -53,21 +52,13 @@ io.on('connection', (socket: Socket) => {
     room: DEFAULT_ROOM,
     position: { x: 0, y: 1, z: 0 },
     quaternion: { _x: 0, _y: 0, _z: 0, _w: 1 },
-    bodyColor: bodyColors[Math.floor(Math.random() * bodyColors.length)],
-    flowerColor: 0xffffff,
-    hp: 100, // HP 초기화
+    bodyColor:   auth?.bodyColor   ?? '#FFB7B2',
+    flowerColor: auth?.flowerColor ?? '#FFB7B2',
+    visorColor:  auth?.visorColor  ?? '#333333',
+    flowerType:  auth?.flowerType  ?? 'daisy',
+    characterId: auth?.characterId ?? null,
+    hp: 100,
   };
-
-  // 이름 설정 이벤트
-  socket.on('SET_NAME', (name: string) => {
-    if (players[socket.id]) {
-      players[socket.id].name = String(name).slice(0, 12) || '익명';
-      socket.to(players[socket.id].room).emit('PLAYER_NAME', {
-        id: socket.id,
-        name: players[socket.id].name,
-      });
-    }
-  });
 
   // 기존 접속자들에게 새 플레이어 알림 (방 안에만)
   socket.to(DEFAULT_ROOM).emit('player_joined', players[socket.id]);

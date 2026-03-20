@@ -18,52 +18,58 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
 
   container.innerHTML = `
     <h2 style="margin-bottom:20px;font-size:16px;">${char ? '캐릭터 편집' : '새 캐릭터'}</h2>
-    <div class="form-group">
-      <label>이름 *</label>
-      <input id="f-name" type="text" maxlength="20" value="${data.name}" placeholder="캐릭터 이름 (최대 20자)" />
-    </div>
-    <div class="form-group">
-      <label>설명</label>
-      <input id="f-desc" type="text" maxlength="100" value="${data.description || ''}" placeholder="설명 (최대 100자)" />
-    </div>
-    <div class="form-group">
-      <label>바디 컬러</label>
-      <div class="color-row">
-        <input id="f-body" type="color" value="${data.bodyColor}" />
-        <input id="f-body-text" type="text" value="${data.bodyColor}" maxlength="7" />
+    <div class="form-inner">
+      <div class="preview-col">
+        <canvas id="preview-canvas" tabindex="0"></canvas>
       </div>
-    </div>
-    <div class="form-group">
-      <label>꽃 컬러</label>
-      <div class="color-row">
-        <input id="f-flower" type="color" value="${data.flowerColor}" />
-        <input id="f-flower-text" type="text" value="${data.flowerColor}" maxlength="7" />
+      <div class="fields-col">
+        <div class="form-group">
+          <label>이름 *</label>
+          <input id="f-name" type="text" maxlength="20" value="${data.name}" placeholder="캐릭터 이름 (최대 20자)" />
+        </div>
+        <div class="form-group">
+          <label>설명</label>
+          <input id="f-desc" type="text" maxlength="100" value="${data.description || ''}" placeholder="설명 (최대 100자)" />
+        </div>
+        <div class="form-group">
+          <label>바디 컬러</label>
+          <div class="color-row">
+            <input id="f-body" type="color" value="${data.bodyColor}" />
+            <input id="f-body-text" type="text" value="${data.bodyColor}" maxlength="7" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>꽃 컬러</label>
+          <div class="color-row">
+            <input id="f-flower" type="color" value="${data.flowerColor}" />
+            <input id="f-flower-text" type="text" value="${data.flowerColor}" maxlength="7" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>바이저 색</label>
+          <div class="color-row">
+            <input id="f-visor" type="color" value="${data.visorColor}" />
+            <input id="f-visor-text" type="text" value="${data.visorColor}" maxlength="7" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>꽃 종류</label>
+          <select id="f-type">
+            <option value="daisy" ${data.flowerType === 'daisy' ? 'selected' : ''}>Daisy (데이지)</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button id="save-btn">저장</button>
+          <button id="cancel-btn">취소</button>
+        </div>
       </div>
-    </div>
-    <div class="form-group">
-      <label>바이저 색</label>
-      <div class="color-row">
-        <input id="f-visor" type="color" value="${data.visorColor}" />
-        <input id="f-visor-text" type="text" value="${data.visorColor}" maxlength="7" />
-      </div>
-    </div>
-    <div class="form-group">
-      <label>꽃 종류</label>
-      <select id="f-type">
-        <option value="daisy" ${data.flowerType === 'daisy' ? 'selected' : ''}>Daisy (데이지)</option>
-      </select>
-    </div>
-    <canvas id="preview-canvas"></canvas>
-    <div class="form-actions">
-      <button id="save-btn">저장</button>
-      <button id="cancel-btn">취소</button>
     </div>
   `;
 
   // 3D 미리보기 초기화
   const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
   canvas.width = canvas.clientWidth || 400;
-  canvas.height = 220;
+  canvas.height = canvas.clientHeight || 400;
   if (preview) preview.destroy();
   preview = new Preview3D(canvas);
   preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor);

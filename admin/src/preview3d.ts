@@ -124,6 +124,7 @@ export class Preview3D {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
+  private canvas: HTMLCanvasElement;
   private model: THREE.Group | null = null;
   private animId = 0;
 
@@ -138,15 +139,16 @@ export class Preview3D {
   private _onKeyDown: (e: KeyboardEvent) => void;
 
   constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.setSize(canvas.clientWidth || 400, canvas.clientHeight || 220);
+    this.renderer.setSize(canvas.clientWidth || 400, canvas.clientHeight || 400);
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xA2D2FF);
 
-    this.camera = new THREE.PerspectiveCamera(50, (canvas.clientWidth || 400) / (canvas.clientHeight || 220), 0.1, 100);
+    this.camera = new THREE.PerspectiveCamera(50, (canvas.clientWidth || 400) / (canvas.clientHeight || 400), 0.1, 100);
     this.camera.position.set(0, 2, 5);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0xb9f3fc, 1.0);
@@ -166,6 +168,13 @@ export class Preview3D {
     };
     this._onMouseUp = () => { this.isDragging = false; };
     this._onKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const isFormField = active instanceof HTMLInputElement
+        || active instanceof HTMLSelectElement
+        || active instanceof HTMLTextAreaElement;
+      if (isFormField) return;
+
+      if (e.key.startsWith('Arrow')) e.preventDefault();
       if (e.key === 'ArrowLeft')  this.rotY -= 0.05;
       if (e.key === 'ArrowRight') this.rotY += 0.05;
       if (e.key === 'ArrowUp')    this.rotX = Math.max(-0.5, this.rotX - 0.05);
@@ -173,12 +182,14 @@ export class Preview3D {
     };
 
     canvas.addEventListener('mousedown', (e) => {
+      canvas.focus();
       this.isDragging = true;
       this.prevMouseX = e.clientX;
       this.prevMouseY = e.clientY;
     });
     window.addEventListener('mousemove', this._onMouseMove);
     window.addEventListener('mouseup', this._onMouseUp);
+    canvas.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keydown', this._onKeyDown);
 
     this._animate();
@@ -205,11 +216,10 @@ export class Preview3D {
     if (this.model) {
       if (!this.isDragging) this.rotY += 0.005;
       this.model.rotation.y = this.rotY;
-      this.camera.position.x = Math.sin(this.rotY) * 5;
-      this.camera.position.z = Math.cos(this.rotY) * 5;
-      this.camera.position.y = 2 + this.rotX * 2;
-      this.camera.lookAt(0, 1, 0);
+      this.model.rotation.x = this.rotX * 0.25;
     }
+    this.camera.position.set(0, 2, 5);
+    this.camera.lookAt(0, 1, 0);
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -217,6 +227,7 @@ export class Preview3D {
     cancelAnimationFrame(this.animId);
     window.removeEventListener('mousemove', this._onMouseMove);
     window.removeEventListener('mouseup', this._onMouseUp);
+    this.canvas.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keydown', this._onKeyDown);
     this.renderer.dispose();
   }

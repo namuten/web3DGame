@@ -63,6 +63,15 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
     topSphere.material = newMat;
   };
 
+  // 바이저 색상 변경
+  (root as any).setVisorColor = (newColor: number) => {
+    visor.material = new THREE.MeshStandardMaterial({
+      color: newColor,
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+  };
+
   // 꽃 색상 변경
   (root as any).setFlowerColor = (newColor: number) => {
     if ((flower as any).setPetalColor) (flower as any).setPetalColor(newColor);

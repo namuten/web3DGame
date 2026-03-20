@@ -1,4 +1,5 @@
-const BASE = 'http://localhost:3000/api/characters';
+const API_URL = import.meta.env.VITE_API_URL || 'http://220.85.41.214';
+const BASE = `${API_URL}/api/characters`;
 
 export interface CharacterData {
   _id?: string;

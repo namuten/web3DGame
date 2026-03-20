@@ -7,6 +7,8 @@ import { appendMessage } from '../ui/chat';
 import { addRemoteBullet, setRemotePlayerColor } from '../game/bullets';
 import { createNameTag } from '../game/nameTag';
 import { otherPlayers } from './players';
+import { toThreeColor } from '../utils';
+import type { CharacterSelection } from '../ui/characterSelect';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
@@ -21,31 +23,38 @@ socket.on('connect', () => {
 
 let localPlayerName = '나';
 
-// 이름을 auth에 넣고 연결 → 서버가 처음부터 이름을 알고 있음
-export const connectWithName = (name: string) => {
-  localPlayerName = name;
-  socket.auth = { playerName: name };
+export const connectWithCharacter = (selection: CharacterSelection) => {
+  localPlayerName = selection.playerName;
+  socket.auth = {
+    playerName: selection.playerName,
+    characterId: selection.characterId,
+    bodyColor: selection.bodyColor,
+    flowerColor: selection.flowerColor,
+    visorColor: selection.visorColor,
+    flowerType: selection.flowerType,
+  };
   socket.connect();
 };
-
-// 다른 플레이어 이름 수신 → 이름표 교체
-socket.on('PLAYER_NAME', (data: { id: string, name: string }) => {
-  if (otherPlayers[data.id]) {
-    if (nameTags[data.id]) otherPlayers[data.id].remove(nameTags[data.id]);
-    const tag = createNameTag(data.name);
-    otherPlayers[data.id].add(tag);
-    nameTags[data.id] = tag;
-  }
-});
 
 // 이미 있던 플레이어 정보 초기 수신
 socket.on('current_players', (players: Record<string, any>) => {
   for (const id in players) {
     if (id !== socket.id) {
-      addOtherPlayer(id, players[id].position, players[id].bodyColor, players[id].flowerColor, players[id].name);
+      addOtherPlayer(
+        id,
+        players[id].position,
+        players[id].bodyColor,
+        players[id].flowerColor,
+        players[id].visorColor,
+        players[id].name
+      );
     } else {
       console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
-      setPlayerColor(players[id].bodyColor, players[id].flowerColor);
+      setPlayerColor(
+        toThreeColor(players[id].bodyColor),
+        toThreeColor(players[id].flowerColor),
+        toThreeColor(players[id].visorColor)
+      );
       if (players[id].hp !== undefined) {
         import('../game/player').then(m => m.applyDamage(players[id].hp));
       }
@@ -54,8 +63,15 @@ socket.on('current_players', (players: Record<string, any>) => {
 });
 
 // 신규 접속 플레이어 알림 수신
-socket.on('player_joined', (playerData: { id: string, name: string, position: {x:number, y:number, z:number}, bodyColor: number, flowerColor: number, quaternion?: {_x:number, _y:number, _z:number, _w:number} }) => {
-  addOtherPlayer(playerData.id, playerData.position, playerData.bodyColor, playerData.flowerColor, playerData.name);
+socket.on('player_joined', (playerData: any) => {
+  addOtherPlayer(
+    playerData.id,
+    playerData.position,
+    playerData.bodyColor,
+    playerData.flowerColor,
+    playerData.visorColor,
+    playerData.name
+  );
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)
@@ -124,16 +140,27 @@ socket.on('PLAYER_RESPAWN', (data: { id: string, hp: number, position: {x: numbe
   }
 });
 
-function addOtherPlayer(id: string, initialPos: {x: number, y: number, z: number}, bodyColor: number = 0xffb7b2, _flowerColor: number = 0xffd1dc, name: string = '익명') {
-  if(otherPlayers[id]) return;
+function addOtherPlayer(
+  id: string,
+  initialPos: { x: number; y: number; z: number },
+  bodyColor: string = '#FFB7B2',
+  flowerColor: string = '#FFB7B2',
+  visorColor: string = '#333333',
+  name: string = '익명'
+) {
+  if (otherPlayers[id]) return;
 
-  setRemotePlayerColor(id, bodyColor);
+  const bodyNum = toThreeColor(bodyColor);
+  const flowerNum = toThreeColor(flowerColor);
+  const visorNum = toThreeColor(visorColor);
 
-  const model = createCharacterModel(bodyColor, bodyColor);
+  setRemotePlayerColor(id, bodyNum);
+
+  const model = createCharacterModel(bodyNum, flowerNum);
+  if ((model as any).setVisorColor) (model as any).setVisorColor(visorNum);
   model.position.set(initialPos.x, initialPos.y, initialPos.z);
-  model.userData = { playerId: id }; // 충돌 판별을 위해 ID 저장
+  model.userData = { playerId: id };
 
-  // 이름표 추가
   const tag = createNameTag(name);
   model.add(tag);
   nameTags[id] = tag;

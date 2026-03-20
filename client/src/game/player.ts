@@ -16,13 +16,16 @@ playerMesh.add(characterModel);
 let localBodyColor: number = 0xffb7b2;
 export const getLocalBodyColor = () => localBodyColor;
 
-export const setPlayerColor = (bodyColor: number, _flowerColor: number) => {
+export const setPlayerColor = (bodyColor: number, flowerColor: number, visorColor?: number) => {
   localBodyColor = bodyColor;
   if ((characterModel as any).setBodyColor) {
     (characterModel as any).setBodyColor(bodyColor);
   }
   if ((characterModel as any).setFlowerColor) {
-    (characterModel as any).setFlowerColor(bodyColor);
+    (characterModel as any).setFlowerColor(flowerColor);
+  }
+  if (visorColor !== undefined && (characterModel as any).setVisorColor) {
+    (characterModel as any).setVisorColor(visorColor);
   }
 };
 

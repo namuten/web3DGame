@@ -40,7 +40,7 @@ const keys = {
 // ─── 궤도 카메라 (Spherical Orbit) 파라미터 ───────────────────
 let cameraTheta = Math.PI;
 export let cameraPhi = Math.PI / 2.8;
-const CAMERA_DIST = 14;       
+const CAMERA_DIST = 14;
 
 // 카메라 회전 관성 변수
 let thetaVelocity = 0;
@@ -48,8 +48,8 @@ let phiVelocity = 0;
 const ROTATION_ACCEL = 5.0;   // 회전 가속도
 const ROTATION_FRICTION = 0.92; // 마찰력 (자연스러운 멈춤)
 
-const PHI_MIN = 0.1;          
-export const PHI_MAX = Math.PI / 2.2; 
+const PHI_MIN = 0.1;
+export const PHI_MAX = Math.PI / 2.2;
 
 // 카메라 보간 변수
 const currentCameraPos = new THREE.Vector3(0, 4, 14);
@@ -194,10 +194,10 @@ export const initPlayer = () => {
     if (e.code === 'KeyA') keys.a = true;
     if (e.code === 'KeyS') keys.s = true;
     if (e.code === 'KeyD') keys.d = true;
-    if (e.code === 'ArrowLeft')  keys.arrowLeft  = true;
+    if (e.code === 'ArrowLeft') keys.arrowLeft = true;
     if (e.code === 'ArrowRight') keys.arrowRight = true;
-    if (e.code === 'ArrowUp')    keys.arrowUp    = true;
-    if (e.code === 'ArrowDown')  keys.arrowDown  = true;
+    if (e.code === 'ArrowUp') keys.arrowUp = true;
+    if (e.code === 'ArrowDown') keys.arrowDown = true;
 
     // 점프 (HP가 0이면 불가)
     if (hp > 0 && e.code === 'Space' && isOnGround) {
@@ -212,10 +212,10 @@ export const initPlayer = () => {
     if (e.code === 'KeyA') keys.a = false;
     if (e.code === 'KeyS') keys.s = false;
     if (e.code === 'KeyD') keys.d = false;
-    if (e.code === 'ArrowLeft')  keys.arrowLeft  = false;
+    if (e.code === 'ArrowLeft') keys.arrowLeft = false;
     if (e.code === 'ArrowRight') keys.arrowRight = false;
-    if (e.code === 'ArrowUp')    keys.arrowUp    = false;
-    if (e.code === 'ArrowDown')  keys.arrowDown  = false;
+    if (e.code === 'ArrowUp') keys.arrowUp = false;
+    if (e.code === 'ArrowDown') keys.arrowDown = false;
   });
 };
 
@@ -235,18 +235,18 @@ export const updatePlayer = (deltaTime: number) => {
   }
 
   // -- 카메라 회전 가속도 적용 (관성 시스템) --
-  if (keys.arrowLeft)  thetaVelocity += ROTATION_ACCEL * deltaTime;
+  if (keys.arrowLeft) thetaVelocity += ROTATION_ACCEL * deltaTime;
   if (keys.arrowRight) thetaVelocity -= ROTATION_ACCEL * deltaTime;
-  if (keys.arrowUp)    phiVelocity   -= ROTATION_ACCEL * deltaTime;
-  if (keys.arrowDown)  phiVelocity   += ROTATION_ACCEL * deltaTime;
+  if (keys.arrowUp) phiVelocity -= ROTATION_ACCEL * deltaTime;
+  if (keys.arrowDown) phiVelocity += ROTATION_ACCEL * deltaTime;
 
   // 값 갱신
   cameraTheta += thetaVelocity * deltaTime;
-  cameraPhi   += phiVelocity * deltaTime;
+  cameraPhi += phiVelocity * deltaTime;
 
   // 마찰력 적용 (자연스럽게 감속)
   thetaVelocity *= ROTATION_FRICTION;
-  phiVelocity   *= ROTATION_FRICTION;
+  phiVelocity *= ROTATION_FRICTION;
 
   // 범위 제한
   cameraPhi = Math.max(PHI_MIN, Math.min(PHI_MAX, cameraPhi));
@@ -266,7 +266,7 @@ export const updatePlayer = (deltaTime: number) => {
 
   // -- WASD 이동 (카메라 수평 방향 기준) --
   playerVelocity.set(0, 0, 0);
-  
+
   // HP가 0이면 이동 차단 (시선 회전만 가능)
   if (hp > 0) {
     if (keys.w) playerVelocity.add(camHorizontalForward);
@@ -291,13 +291,13 @@ export const updatePlayer = (deltaTime: number) => {
 
   if (playerVelocity.lengthSq() > 0) {
     playerVelocity.normalize();
-    
+
     // HP에 따른 동적 속도 계산 (HP 100 = 100%, HP 50 = 50%)
     const currentSpeed = BASE_SPEED * (hp / 100);
 
     // 이동 위치 계산 및 충돌 처리 (슬라이딩 로직)
     const moveStep = playerVelocity.clone().multiplyScalar(currentSpeed * deltaTime);
-    
+
     // 1. X, Z 동시 이동 시도
     const testPosAll = playerMesh.position.clone().add(moveStep);
     if (!checkCollision(testPosAll)) {
@@ -309,7 +309,7 @@ export const updatePlayer = (deltaTime: number) => {
       if (!checkCollision(testPosX)) {
         playerMesh.position.x = testPosX.x;
       }
-      
+
       // 3. Z축만 이동 시도
       const testPosZ = playerMesh.position.clone();
       testPosZ.z += moveStep.z;
@@ -333,9 +333,9 @@ export const updatePlayer = (deltaTime: number) => {
     const pz = playerMesh.position.z;
     const halfW = 0.38;
     const prevBottom = playerMesh.position.y + 0.1;
-    const prevTop    = playerMesh.position.y + 1.9;
-    const newBottom  = newY + 0.1;
-    const newTop     = newY + 1.9;
+    const prevTop = playerMesh.position.y + 1.9;
+    const newBottom = newY + 0.1;
+    const newTop = newY + 1.9;
 
     let blocked = false;
 
@@ -395,17 +395,17 @@ export const updatePlayer = (deltaTime: number) => {
     : 0;
 
   // 목표: 이동 반대 방향으로 쏠림
-  const targetFwd  = -movingFwd  * 0.9;
+  const targetFwd = -movingFwd * 0.9;
   const targetSide = movingSide * 0.6;
 
   // 스프링 공식: F = -k*(x - target) - d*v
-  const forceFwd  = (targetFwd  - flowerSpringFwd)  * SPRING_K - flowerSpringFwdVel  * SPRING_D;
+  const forceFwd = (targetFwd - flowerSpringFwd) * SPRING_K - flowerSpringFwdVel * SPRING_D;
   const forceSide = (targetSide - flowerSpringSide) * SPRING_K - flowerSpringSideVel * SPRING_D;
 
-  flowerSpringFwdVel  += forceFwd  * deltaTime;
+  flowerSpringFwdVel += forceFwd * deltaTime;
   flowerSpringSideVel += forceSide * deltaTime;
-  flowerSpringFwd     += flowerSpringFwdVel  * deltaTime;
-  flowerSpringSide    += flowerSpringSideVel * deltaTime;
+  flowerSpringFwd += flowerSpringFwdVel * deltaTime;
+  flowerSpringSide += flowerSpringSideVel * deltaTime;
 
   if ((characterModel as any).updateFlowerPhysics) {
     (characterModel as any).updateFlowerPhysics(flowerSpringFwd, flowerSpringSide);
@@ -422,10 +422,10 @@ export const updatePlayer = (deltaTime: number) => {
 
   // 상체 회전 범위를 -90도 ~ 90도로 제한 (허리가 꼬이지 않게)
   const clampedYaw = Math.max(-Math.PI * 0.4, Math.min(Math.PI * 0.4, relativeYaw));
-  
+
   // 부드럽게 보간 (Snap 방지)
   currentUpperYaw = THREE.MathUtils.lerp(currentUpperYaw, clampedYaw, Math.min(UPPER_LERP_SPEED * deltaTime, 1.0));
-  
+
   if ((characterModel as any).setUpperRotation) {
     (characterModel as any).setUpperRotation(currentUpperYaw);
   }
@@ -476,10 +476,11 @@ export const applyDamage = (newHP: number, direction?: THREE.Vector3) => {
   }
 };
 
-export const respawnPlayer = (newHP: number, position: {x: number, y: number, z: number}) => {
+export const respawnPlayer = (newHP: number, position: { x: number, y: number, z: number }) => {
   hp = newHP;
   updateHPHUD();
   playerMesh.position.set(position.x, position.y, position.z);
   knockbackVelocity.set(0, 0, 0);
   verticalVelocity = 0;
 };
+

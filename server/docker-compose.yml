@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web3d-server:
+    build: .
+    container_name: web3d-server
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=220.85.41.214
+      - DB_PORT=3306
+      - DB_NAME=twdb
+      - DB_USER=twuser
+      - DB_PASSWORD=your_password_here
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

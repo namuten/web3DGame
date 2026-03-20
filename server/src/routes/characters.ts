@@ -17,7 +17,8 @@ router.get('/', async (_req: Request, res: Response) => {
 // 단일 조회
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const character = await Character.findById(req.params.id!);
+    const id = req.params.id as string;
+    const character = await Character.findById(id);
     if (!character) return res.status(404).json({ error: 'Not found' });
     res.json(character);
   } catch (err) {
@@ -42,7 +43,8 @@ router.post('/', async (req: Request, res: Response) => {
 // 수정
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const character = await Character.update(req.params.id!, req.body);
+    const id = req.params.id as string;
+    const character = await Character.update(id, req.body);
     if (!character) return res.status(404).json({ error: 'Not found' });
     res.json(character);
   } catch (err: any) {
@@ -53,7 +55,8 @@ router.put('/:id', async (req: Request, res: Response) => {
 // 삭제
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const deleted = await Character.remove(req.params.id!);
+    const id = req.params.id as string;
+    const deleted = await Character.remove(id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted' });
   } catch (err) {

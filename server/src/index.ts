@@ -2,18 +2,23 @@ import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
-import mongoose from 'mongoose';
+import { pool } from './db.js';
+import { ensureTable } from './models/Character.js';
 import characterRoutes from './routes/characters.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MongoDB 연결
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/web3dgame';
-mongoose.connect(MONGO_URL)
-  .then(() => console.log('✅ MongoDB 연결 성공'))
-  .catch((err) => console.error('❌ MongoDB 연결 실패:', err));
+// MySQL 연결 확인 및 테이블 초기화
+pool.getConnection()
+  .then(async (conn) => {
+    console.log('✅ MySQL 연결 성공');
+    conn.release();
+    await ensureTable();
+    console.log('✅ characters 테이블 준비 완료');
+  })
+  .catch((err) => console.error('❌ MySQL 연결 실패:', err));
 
 // 캐릭터 API 라우터
 app.use('/api/characters', characterRoutes);

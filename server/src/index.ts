@@ -2,9 +2,22 @@ import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
+import mongoose from 'mongoose';
+import characterRoutes from './routes/characters.js';
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+// MongoDB 연결
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/web3dgame';
+mongoose.connect(MONGO_URL)
+  .then(() => console.log('✅ MongoDB 연결 성공'))
+  .catch((err) => console.error('❌ MongoDB 연결 실패:', err));
+
+// 캐릭터 API 라우터
+app.use('/api/characters', characterRoutes);
+
 app.get('/', (_req, res) => res.send('OK'));
 
 const server = http.createServer(app);
@@ -103,14 +116,15 @@ io.on('connection', (socket: Socket) => {
         direction: data.direction
       });
 
-      // 사망 처리
+      // 사망 처리 (자동 리스폰 제거, 0으로 고정)
       if (target.hp <= 0) {
-        target.hp = 100;
-        target.position = { x: (Math.random() - 0.5) * 20, y: 1, z: (Math.random() - 0.5) * 20 };
-        io.to(room).emit('PLAYER_RESPAWN', {
-          id: data.targetId,
-          hp: target.hp,
-          position: target.position
+        target.hp = 0;
+        // 클라이언트에서 움직임 제한을 위해 0으로 전송
+        io.to(room).emit('PLAYER_DAMAGED', {
+          targetId: data.targetId,
+          hp: 0,
+          shooterId: data.shooterId,
+          direction: data.direction
         });
       }
     }
@@ -146,6 +160,42 @@ io.on('connection', (socket: Socket) => {
     io.to(leftPlayerRoom).emit('player_left', socket.id);
   });
 });
+
+// ─── 주기적으로 플레이어 간 거리 체크 및 HP 회복 (1초 간격) ──────────
+setInterval(() => {
+  const playerIds = Object.keys(players);
+  for (const id1 of playerIds) {
+    const p1 = players[id1];
+    if (!p1 || p1.hp >= 100) continue;
+
+    let hasHealer = false;
+    for (const id2 of playerIds) {
+      if (id1 === id2) continue;
+      const p2 = players[id2];
+      if (!p2) continue;
+      
+      const dx = p1.position.x - p2.position.x;
+      const dy = p1.position.y - p2.position.y;
+      const dz = p1.position.z - p2.position.z;
+      const distSq = dx*dx + dy*dy + dz*dz;
+
+      if (distSq < 2.5 * 2.5) { // 약 2.5유닛 이내면 회복
+        hasHealer = true;
+        break;
+      }
+    }
+
+    if (hasHealer) {
+      p1.hp = Math.min(100, p1.hp + 10);
+      io.to(p1.room).emit('PLAYER_DAMAGED', {
+        targetId: p1.id,
+        hp: p1.hp,
+        shooterId: 'system_heal',
+        direction: { x: 0, y: 0, z: 0 }
+      });
+    }
+  }
+}, 1000);
 
 server.listen(PORT, () => {
   console.log(`🚀 웹소켓 게임 서버 가동 중 (포트 ${PORT})...`);

@@ -55,16 +55,28 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'fogDensity must be 0.001 ~ 0.05' });
     }
 
+    // 바닥 크기 및 플레이 존 검증
+    const fSize = Number(floorSize ?? 400);
+    const pZone = Number(playZone ?? 80);
+
+    if (fSize < 100 || fSize > 2000) {
+      return res.status(400).json({ error: 'floorSize must be between 100 and 2000' });
+    }
+    // 장애물이 바닥 끝에 걸치지 않도록 약간의 여유(10유닛)를 둠
+    if (pZone > (fSize / 2) - 10) {
+      return res.status(400).json({ error: 'playZone must be less than (floorSize / 2) - 10' });
+    }
+
     const map = await MapModel.create({
       name,
       theme,
-      floorSize:      floorSize      ?? 400,
-      playZone:       playZone       ?? 80,
-      obstacleCount:  obstacleCount  ?? 80,
+      floorSize: fSize,
+      playZone: pZone,
+      obstacleCount:  Number(obstacleCount  ?? 80),
       obstacleColors,
-      fogDensity:     fogDensity     ?? 0.005,
+      fogDensity:     Number(fogDensity     ?? 0.005),
       bgColor:        bgColor        ?? '#A2D2FF',
-      seed:           seed           ?? 42,
+      seed:           Number(seed           ?? 42),
       isActive:       isActive       ?? true,
     });
     res.status(201).json(map);
@@ -79,15 +91,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const { obstacleColors, seed, fogDensity } = req.body;
 
-    if (obstacleColors !== undefined &&
-        (!Array.isArray(obstacleColors) || obstacleColors.length === 0)) {
-      return res.status(400).json({ error: 'obstacleColors must be a non-empty array' });
-    }
-    if (seed !== undefined && (seed < 0 || seed > 2147483647)) {
-      return res.status(400).json({ error: 'seed must be 0 ~ 2147483647' });
-    }
-    if (fogDensity !== undefined && (fogDensity < 0.001 || fogDensity > 0.05)) {
-      return res.status(400).json({ error: 'fogDensity must be 0.001 ~ 0.05' });
+    // 수정 시에도 범위 검증 (값이 제공된 경우만)
+    if (req.body.floorSize !== undefined) {
+      const fSize = Number(req.body.floorSize);
+      if (fSize < 100 || fSize > 2000) {
+        return res.status(400).json({ error: 'floorSize must be between 100 and 2000' });
+      }
     }
 
     const map = await MapModel.update(id, req.body);

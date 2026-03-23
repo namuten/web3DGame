@@ -82,15 +82,20 @@ io.on('connection', (socket: Socket) => {
   broadcastMapPlayers();
 
   // ─── JOIN_MAP: 맵 선택 후 입장 ─────────────────────
-  socket.on('JOIN_MAP', async (data: { mapId: number }) => {
-    const mapIdStr = String(data.mapId);
+  socket.on('JOIN_MAP', async (data: { mapId: any }) => {
+    const mapId = Number(data.mapId);
+    console.log(`[Socket] JOIN_MAP 요청: ID=${data.mapId} (Converted to: ${mapId})`);
 
     // DB에서 맵 설정 조회
-    const mapConfig = await MapModel.findById(data.mapId);
+    const mapConfig = await MapModel.findById(mapId);
     if (!mapConfig) {
+      console.error(`[Socket] 맵을 찾을 수 없음: ID=${mapId}`);
       socket.emit('MAP_ERROR', { message: 'Map not found' });
       return;
     }
+
+    console.log(`[Socket] 맵 발견: "${mapConfig.name}", 클라이언트에 MAP_CONFIG 전송`);
+    const mapIdStr = String(mapConfig.id);
 
     // 기존 룸이 있다면 나가기 (안전장치)
     if (players[socket.id].mapId) {

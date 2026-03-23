@@ -67,8 +67,12 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
         <button type="button" id="add-color-btn" style="margin-top:4px;">+ 색상 추가</button>
       </div>
       <div class="form-group">
-        <label>바닥 크기</label>
-        <input id="m-floor" type="number" min="100" max="1000" value="${data.floorSize}" />
+        <label>바닥 크기 (100~2000)</label>
+        <input id="m-floor" type="number" min="100" max="2000" value="${data.floorSize}" />
+      </div>
+      <div class="form-group">
+        <label>장애물 배치 구역 (<span id="pz-val">${data.playZone}</span>)</label>
+        <input id="m-pz" type="range" min="10" max="${Math.floor(data.floorSize / 2) - 10}" value="${data.playZone}" />
       </div>
       <div class="form-group">
         <label>안개 밀도 (0.001~0.05)</label>
@@ -111,6 +115,19 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
     (document.getElementById('m-seed') as HTMLInputElement).value = String(randomSeed());
   });
 
+  // 실시간 플레이존 최대값 동기화
+  const floorInput = document.getElementById('m-floor') as HTMLInputElement;
+  const pzInput = document.getElementById('m-pz') as HTMLInputElement;
+  floorInput.addEventListener('change', () => {
+    const maxPZ = Math.max(10, Math.floor(Number(floorInput.value) / 2) - 10);
+    pzInput.max = String(maxPZ);
+    if (Number(pzInput.value) > maxPZ) pzInput.value = String(maxPZ);
+    document.getElementById('pz-val')!.textContent = pzInput.value;
+  });
+  pzInput.addEventListener('input', () => {
+    document.getElementById('pz-val')!.textContent = pzInput.value;
+  });
+
   document.getElementById('cancel-btn')!.addEventListener('click', () => {
     container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
   });
@@ -125,7 +142,7 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
       theme:          (document.getElementById('m-theme')  as HTMLSelectElement).value,
       obstacleCount:  Number((document.getElementById('m-obs')   as HTMLInputElement).value),
       floorSize:      Number((document.getElementById('m-floor') as HTMLInputElement).value),
-      playZone:       data.playZone,
+      playZone:       Number((document.getElementById('m-pz')    as HTMLInputElement).value),
       fogDensity:     Number((document.getElementById('m-fog')   as HTMLInputElement).value),
       bgColor:        (document.getElementById('m-bg')     as HTMLInputElement).value,
       seed:           Number((document.getElementById('m-seed')  as HTMLInputElement).value),
@@ -133,14 +150,21 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
       obstacleColors: colors,
     };
 
+    console.log('[MapForm] Saving payload:', payload);
+
     try {
       if (map?.id) {
+        console.log('[MapForm] Updating existing map:', map.id);
         await updateMap(map.id, payload);
       } else {
+        console.log('[MapForm] Creating new map');
         await createMap(payload);
       }
+      alert('저장되었습니다.');
+      container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
       onSaved();
     } catch (e: any) {
+      console.error('[MapForm] Save error:', e);
       alert('저장 실패: ' + e.message);
     }
   });

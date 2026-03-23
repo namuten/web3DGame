@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { renderer, mountRenderer } from './engine/renderer';
 import { scene } from './engine/scene';
 import { camera } from './engine/camera';
-import { initWorld, worldCollidables } from './game/world';
+import { initWorld, worldCollidables, updateWorld } from './game/world';
 import { initPlayer, updatePlayer, playerMesh, characterModel } from './game/player';
 import {
   broadcastLocalPosition,
@@ -51,6 +51,7 @@ const animate = () => {
   const deltaTime = clock.getDelta();
   updatePlayer(deltaTime);
   updateBullets(deltaTime);
+  updateWorld(clock.getElapsedTime());
   broadcastLocalPosition();
   renderer.render(scene, camera);
 };

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
 import { camera } from '../engine/camera';
-import { worldCollidables } from './world';
+import { worldCollidables, currentMapConfig, getGroundHeight } from './world';
 import { otherPlayers } from '../network/players';
 
 import { createCharacterModel } from './characterModel';
@@ -58,7 +58,6 @@ const smoothLookAtPos = new THREE.Vector3(0, 1.5, 0);
 // ─── 점프 & 중력 ──────────────────────────────────────────────
 const GRAVITY = -25;
 const JUMP_FORCE = 12;
-const GROUND_Y = 0;
 let verticalVelocity = 0;
 let isOnGround = true;
 
@@ -328,17 +327,27 @@ export const updatePlayer = (deltaTime: number) => {
     }
   }
 
+  // -- 맵 경계 제한 (Clamp Position) --
+  if (currentMapConfig) {
+    const halfSize = currentMapConfig.floorSize / 2;
+    const margin = 0.5;
+    playerMesh.position.x = THREE.MathUtils.clamp(playerMesh.position.x, -halfSize + margin, halfSize - margin);
+    playerMesh.position.z = THREE.MathUtils.clamp(playerMesh.position.z, -halfSize + margin, halfSize - margin);
+  }
+
   // -- 수직 이동 (중력 + 점프 + 장애물 착지) --
   verticalVelocity += GRAVITY * deltaTime;
   const newY = playerMesh.position.y + verticalVelocity * deltaTime;
 
-  if (newY <= GROUND_Y) {
+  // 현재 위치의 지면 높이 계산
+  const currentGroundY = getGroundHeight(playerMesh.position.x, playerMesh.position.z);
+
+  if (newY <= currentGroundY) {
     // 바닥 착지
     if (!isOnGround) {
-      // 착지 반동 (순간적으로 납작하게)
       modelScaleYVel = -3.5;
     }
-    playerMesh.position.y = GROUND_Y;
+    playerMesh.position.y = currentGroundY;
     verticalVelocity = 0;
     isOnGround = true;
   } else {

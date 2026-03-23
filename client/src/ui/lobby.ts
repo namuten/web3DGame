@@ -1,4 +1,4 @@
-import type { MapConfig } from '../types/map';
+// MapConfig is not used here, using MapInfo instead
 
 const API_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 

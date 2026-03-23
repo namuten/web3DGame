@@ -5,10 +5,19 @@ import { scene } from './engine/scene';
 import { camera } from './engine/camera';
 import { initWorld, worldCollidables } from './game/world';
 import { initPlayer, updatePlayer, playerMesh, characterModel } from './game/player';
-import { broadcastLocalPosition, sendChatMessage, sendShoot, connectWithCharacter } from './network/socket';
+import {
+  broadcastLocalPosition,
+  sendChatMessage,
+  sendShoot,
+  connectWithCharacter,
+  joinMap,
+  onMapConfig,
+  onMapPlayers,
+} from './network/socket';
 import { initHUD } from './ui/hud';
 import { initChat } from './ui/chat';
 import { showCharacterSelect } from './ui/characterSelect';
+import { showLobby } from './ui/lobby';
 import { createNameTag } from './game/nameTag';
 import {
   initBulletInput,
@@ -19,12 +28,6 @@ import {
 
 // 화면에 렌더러 등록
 mountRenderer('app');
-
-// 월드(조명, 장애물, 맵 등) 초기화
-initWorld();
-
-// 탄환 충돌 대상 등록
-registerCollidables(worldCollidables);
 
 // 플레이어 초기 세팅
 initPlayer();
@@ -52,18 +55,41 @@ const animate = () => {
   renderer.render(scene, camera);
 };
 
-// 캐릭터 선택 후 게임 시작
+// ─── 시작 흐름 ────────────────────────────────────────
+// 1. 캐릭터 선택
 showCharacterSelect().then((selection) => {
+  // 2. 소켓 연결 (캐릭터 auth 포함)
   const myTag = createNameTag(selection.playerName);
   myTag.name = 'nameTag';
-  // 상체에 부착 (상체 회전 시 같이 움직이게 함)
   if ((characterModel as any).addNameTag) {
     (characterModel as any).addNameTag(myTag);
   } else {
     playerMesh.add(myTag);
   }
-
   connectWithCharacter(selection);
 
-  animate();
+  // MAP_PLAYERS 수신 시 로비 UI 갱신
+  onMapPlayers((counts) => {
+    if ((window as any).__updateLobbyMapPlayers) {
+      (window as any).__updateLobbyMapPlayers(counts);
+    }
+  });
+
+  // 3. 로비 표시 (맵 선택)
+  showLobby().then((selectedMapId) => {
+    // 4. MAP_CONFIG 수신 대기 등록
+    onMapConfig((config) => {
+      // 5. 맵 초기화
+      initWorld(config);
+
+      // 탄환 충돌 대상 등록
+      registerCollidables(worldCollidables);
+
+      // 6. 게임 루프 시작
+      animate();
+    });
+
+    // 7. JOIN_MAP 전송 (서버에서 MAP_CONFIG 화답 유도)
+    joinMap(selectedMapId);
+  });
 });

@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
-import { playerMesh, setPlayerColor, getUpperYaw } from '../game/player';
+import { playerMesh, setPlayerColor, getUpperYaw, getUpperPitch } from '../game/player';
 import { createCharacterModel } from '../game/characterModel';
 import { appendMessage } from '../ui/chat';
 import { addRemoteBullet, setRemotePlayerColor } from '../game/bullets';
@@ -75,7 +75,7 @@ socket.on('player_joined', (playerData: any) => {
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)
-socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:number, z:number}, quaternion?: {_x:number, _y:number, _z:number, _w:number}, upperYaw?: number }) => {
+socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:number, z:number}, quaternion?: {_x:number, _y:number, _z:number, _w:number}, upperYaw?: number, upperPitch?: number }) => {
   if (otherPlayers[updateInfo.id]) {
     otherPlayers[updateInfo.id].position.set(
       updateInfo.position.x,
@@ -91,7 +91,7 @@ socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:numb
       );
     }
     if (updateInfo.upperYaw !== undefined && (otherPlayers[updateInfo.id] as any).setUpperRotation) {
-      (otherPlayers[updateInfo.id] as any).setUpperRotation(updateInfo.upperYaw);
+      (otherPlayers[updateInfo.id] as any).setUpperRotation(updateInfo.upperYaw, updateInfo.upperPitch || 0);
     }
   }
 });
@@ -162,7 +162,11 @@ function addOtherPlayer(
   model.userData = { playerId: id };
 
   const tag = createNameTag(name);
-  model.add(tag);
+  if ((model as any).addNameTag) {
+    (model as any).addNameTag(tag);
+  } else {
+    model.add(tag);
+  }
   nameTags[id] = tag;
 
   scene.add(model);
@@ -190,7 +194,8 @@ export const broadcastLocalPosition = () => {
             _z: playerMesh.quaternion.z,
             _w: playerMesh.quaternion.w
         },
-        upperYaw: getUpperYaw()
+        upperYaw: getUpperYaw(),
+        upperPitch: getUpperPitch()
     });
 };
 

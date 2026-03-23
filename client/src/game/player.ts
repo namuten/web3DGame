@@ -10,7 +10,7 @@ import { createCharacterModel } from './characterModel';
 export const playerMesh = new THREE.Group();
 
 // 신형 캐릭터 모델 생성 (하부/상부 분리)
-const characterModel = createCharacterModel();
+export const characterModel = createCharacterModel();
 playerMesh.add(characterModel);
 
 let localBodyColor: number = 0xffb7b2;
@@ -88,9 +88,10 @@ let damageFlashTimer = 0;
 const flashMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 2 });
 let originalMaterials: Map<THREE.Mesh, THREE.Material | THREE.Material[]> = new Map();
 
-// 상체 회전 보간 변수
 let currentUpperYaw = 0;
+let currentUpperPitch = 0;
 export const getUpperYaw = () => currentUpperYaw;
+export const getUpperPitch = () => currentUpperPitch;
 const UPPER_LERP_SPEED = 3.5;
 
 // 꽃 스프링 물리 변수
@@ -98,6 +99,12 @@ let flowerSpringFwd = 0, flowerSpringFwdVel = 0;
 let flowerSpringSide = 0, flowerSpringSideVel = 0;
 const SPRING_K = 18;   // 탄성 (클수록 빠르게 복원)
 const SPRING_D = 5.5;  // 감쇠 (클수록 빨리 멈춤)
+
+// 모델 반동 물리 변수 (Scale Squash & Stretch)
+let modelScaleY = 1.0;
+let modelScaleYVel = 0;
+const RECOIL_K = 220;  // 반동 탄성
+const RECOIL_D = 12;   // 반동 감쇠
 
 // ─── 이동 속도 ────────────────────────────────────────────────
 const BASE_SPEED = 12;
@@ -203,6 +210,8 @@ export const initPlayer = () => {
     if (hp > 0 && e.code === 'Space' && isOnGround) {
       verticalVelocity = JUMP_FORCE;
       isOnGround = false;
+      // 점프 시 순간적으로 위로 늘어남
+      modelScaleYVel = 1.5;
       e.preventDefault(); // 스크롤 방지
     }
   });
@@ -325,6 +334,10 @@ export const updatePlayer = (deltaTime: number) => {
 
   if (newY <= GROUND_Y) {
     // 바닥 착지
+    if (!isOnGround) {
+      // 착지 반동 (순간적으로 납작하게)
+      modelScaleYVel = -3.5;
+    }
     playerMesh.position.y = GROUND_Y;
     verticalVelocity = 0;
     isOnGround = true;
@@ -411,23 +424,40 @@ export const updatePlayer = (deltaTime: number) => {
     (characterModel as any).updateFlowerPhysics(flowerSpringFwd, flowerSpringSide);
   }
 
+  // -- 모델 반동 물리 업데이트 (Scale Y) --
+  const recoilAcc = (1.0 - modelScaleY) * RECOIL_K - modelScaleYVel * RECOIL_D;
+  modelScaleYVel += recoilAcc * deltaTime;
+  modelScaleY += modelScaleYVel * deltaTime;
+  
+  if ((characterModel as any).setVisualEffects) {
+    // 바닥에 붙어 있도록 offsetY 조정 (1.0 - scaleY) * 모델높이/2
+    const offsetY = (1.0 - modelScaleY) * 0.75; 
+    (characterModel as any).setVisualEffects(modelScaleY, offsetY);
+  }
+
   // 카메라가 바라보는 방향과 캐릭터 몸체 방향 사이의 차이 계산
   const cameraYaw = cameraTheta - Math.PI;
-  const bodyYaw = playerMesh.rotation.y;
+  const bodyEuler = new THREE.Euler().setFromQuaternion(playerMesh.quaternion, 'YXZ');
+  const bodyYaw = bodyEuler.y;
   let relativeYaw = cameraYaw - bodyYaw;
 
   // 각도 정규화 (-PI ~ PI)
   while (relativeYaw > Math.PI) relativeYaw -= Math.PI * 2;
   while (relativeYaw < -Math.PI) relativeYaw += Math.PI * 2;
 
-  // 상체 회전 범위를 -90도 ~ 90도로 제한 (허리가 꼬이지 않게)
+  // 상체 회전 범위를 -70도 ~ 70도로 제한 (허리가 꼬이지 않게)
   const clampedYaw = Math.max(-Math.PI * 0.4, Math.min(Math.PI * 0.4, relativeYaw));
+  
+  // 상하 시선 (Pitch) 계산: cameraPhi가 작을수록(위에서 볼수록) 고개를 숙임
+  // 기본 Phi = PI/2.8(약 1.12)
+  const targetPitch = (cameraPhi - Math.PI / 2.8) * 0.7;
 
   // 부드럽게 보간 (Snap 방지)
   currentUpperYaw = THREE.MathUtils.lerp(currentUpperYaw, clampedYaw, Math.min(UPPER_LERP_SPEED * deltaTime, 1.0));
+  currentUpperPitch = targetPitch; // 피치는 즉각적으로 반영해도 무방
 
   if ((characterModel as any).setUpperRotation) {
-    (characterModel as any).setUpperRotation(currentUpperYaw);
+    (characterModel as any).setUpperRotation(currentUpperYaw, currentUpperPitch);
   }
 
   // -- HP 기반 시각 효과 (Shake/Tilt) --

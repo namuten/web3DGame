@@ -77,9 +77,16 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
     if ((flower as any).setPetalColor) (flower as any).setPetalColor(newColor);
   };
 
-  // 상체 회전 (허리 위만 회전)
-  (root as any).setUpperRotation = (yRotation: number) => {
-    upperBody.rotation.y = yRotation;
+  // 상체 회전 (허리 위만 회전 - 좌우 Yaw, 상하 Pitch)
+  (root as any).setUpperRotation = (yaw: number, pitch: number = 0) => {
+    upperBody.rotation.y = yaw;
+    upperBody.rotation.x = pitch;
+  };
+
+  // 모델 전체 스케일/오프셋 조절 (반동 연출용)
+  (root as any).setVisualEffects = (scaleY: number, offsetY: number) => {
+    root.scale.set(1 / scaleY, scaleY, 1 / scaleY); // 부피 보존 스쿼시 & 스트레치
+    root.position.y = offsetY;
   };
 
   // 꽃 물리 업데이트 (스프링 물리 연동)
@@ -90,6 +97,14 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
   // 꽃 기울기 업데이트 (카메라 앙각 연동)
   (root as any).updateFlowerTilt = (tiltFactor: number) => {
     if ((flower as any).updateTilt) (flower as any).updateTilt(tiltFactor);
+  };
+
+  // 이름표 부착 (상체에 귀속시켜 상체 회전 시 같이 움직이게 함)
+  (root as any).addNameTag = (tag: THREE.Object3D) => {
+    // tag의 arc는 내부적으로 y=1.8 등에 위치하므로 그대로 추가
+    // 단, upperBody가 y=1.0에 있으므로 상대 좌표 보정 필요
+    tag.position.y -= 1.0; 
+    upperBody.add(tag);
   };
 
   return root;

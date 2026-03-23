@@ -208,7 +208,7 @@ export const createNameTag = (name: string): THREE.Group => {
 
   // 캔버스가 커졌으니 arc도 약간 크게
   const arcGeo = new THREE.CylinderGeometry(
-    0.53, 0.53, 0.6,
+    0.56, 0.56, 0.6,
     24, 1, true,
     Math.PI - 0.7, 1.4
   );
@@ -223,7 +223,7 @@ export const createNameTag = (name: string): THREE.Group => {
   });
 
   const arc = new THREE.Mesh(arcGeo, mat);
-  arc.position.y = 1.5;
+  arc.position.y = 1.3; // 등 중앙에 위치
   group.add(arc);
 
   return group;

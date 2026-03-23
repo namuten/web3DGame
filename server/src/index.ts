@@ -92,7 +92,8 @@ io.on('connection', (socket: Socket) => {
         id: socket.id,
         position: data.position,
         quaternion: data.quaternion,
-        upperYaw: data.upperYaw
+        upperYaw: data.upperYaw,
+        upperPitch: data.upperPitch
       });
     }
   });

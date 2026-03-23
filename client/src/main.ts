@@ -4,7 +4,7 @@ import { renderer, mountRenderer } from './engine/renderer';
 import { scene } from './engine/scene';
 import { camera } from './engine/camera';
 import { initWorld, worldCollidables } from './game/world';
-import { initPlayer, updatePlayer, playerMesh } from './game/player';
+import { initPlayer, updatePlayer, playerMesh, characterModel } from './game/player';
 import { broadcastLocalPosition, sendChatMessage, sendShoot, connectWithCharacter } from './network/socket';
 import { initHUD } from './ui/hud';
 import { initChat } from './ui/chat';
@@ -56,7 +56,12 @@ const animate = () => {
 showCharacterSelect().then((selection) => {
   const myTag = createNameTag(selection.playerName);
   myTag.name = 'nameTag';
-  playerMesh.add(myTag);
+  // 상체에 부착 (상체 회전 시 같이 움직이게 함)
+  if ((characterModel as any).addNameTag) {
+    (characterModel as any).addNameTag(myTag);
+  } else {
+    playerMesh.add(myTag);
+  }
 
   connectWithCharacter(selection);
 

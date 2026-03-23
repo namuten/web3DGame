@@ -45,24 +45,31 @@ const PORT = process.env.PORT || 3000;
 // 접속한 플레이어들의 상태를 메모리에 잠시 저장
 const players: Record<string, any> = {};
 
-const DEFAULT_ROOM = 'Lobby';
+/** 맵별 접속자 수를 전체 소켓에 broadcast */
+const broadcastMapPlayers = () => {
+  const counts: Record<string, number> = {};
+  for (const pid in players) {
+    const mapId = players[pid].mapId;
+    if (mapId) {
+      counts[mapId] = (counts[mapId] || 0) + 1;
+    }
+  }
+  io.emit('MAP_PLAYERS', counts);
+};
 
 io.on('connection', (socket: Socket) => {
   console.log(`플레이어 접속: ${socket.id}`);
-
-  // 기본 방에 접속시킴 (Room Scaling)
-  socket.join(DEFAULT_ROOM);
 
   // 새로운 플레이어 생성 (캐릭터 선택 화면에서 전달된 데이터 사용)
   const auth = socket.handshake.auth as any;
   const playerName = String(auth?.playerName || '익명').slice(0, 12);
 
   players[socket.id] = {
-    id: socket.id,
-    name: playerName,
-    room: DEFAULT_ROOM,
-    position: { x: 0, y: 1, z: 0 },
-    quaternion: { _x: 0, _y: 0, _z: 0, _w: 1 },
+    id:          socket.id,
+    name:        playerName,
+    mapId:       null,            // JOIN_MAP 전까지 null
+    position:    { x: 0, y: 1, z: 0 },
+    quaternion:  { _x: 0, _y: 0, _z: 0, _w: 1 },
     bodyColor:   auth?.bodyColor   ?? '#FFB7B2',
     flowerColor: auth?.flowerColor ?? '#FFB7B2',
     visorColor:  auth?.visorColor  ?? '#333333',
@@ -71,83 +78,109 @@ io.on('connection', (socket: Socket) => {
     hp: 100,
   };
 
-  // 기존 접속자들에게 새 플레이어 알림 (방 안에만)
-  socket.to(DEFAULT_ROOM).emit('player_joined', players[socket.id]);
+  // 로비에 있는 클라이언트들에게 맵별 접속자 수 전송
+  broadcastMapPlayers();
 
-  // 새 접속자에게는 현재 방에 있는 모든 플레이어 정보 전달
-  // 전체 접속자가 아니라 해당 방의 접속자만 필터링해서 전달하도록 수정 가능
-  const roomPlayers: Record<string, any> = {};
-  for(const pid in players) {
-    if(players[pid].room === DEFAULT_ROOM) {
-        roomPlayers[pid] = players[pid];
+  // ─── JOIN_MAP: 맵 선택 후 입장 ─────────────────────
+  socket.on('JOIN_MAP', async (data: { mapId: number }) => {
+    const mapIdStr = String(data.mapId);
+
+    // DB에서 맵 설정 조회
+    const mapConfig = await MapModel.findById(data.mapId);
+    if (!mapConfig) {
+      socket.emit('MAP_ERROR', { message: 'Map not found' });
+      return;
     }
-  }
-  socket.emit('current_players', roomPlayers);
+
+    // 기존 룸이 있다면 나가기 (안전장치)
+    if (players[socket.id].mapId) {
+        socket.leave(players[socket.id].mapId);
+    }
+
+    // 룸 입장
+    socket.join(mapIdStr);
+    players[socket.id].mapId = mapIdStr;
+
+    // 1. MAP_CONFIG 먼저 전송
+    socket.emit('MAP_CONFIG', mapConfig);
+
+    // 2. 현재 맵의 플레이어 목록 전송
+    const roomPlayers: Record<string, any> = {};
+    for (const pid in players) {
+      if (players[pid].mapId === mapIdStr) {
+        roomPlayers[pid] = players[pid];
+      }
+    }
+    socket.emit('current_players', roomPlayers);
+
+    // 3. 같은 맵 다른 플레이어들에게 신규 입장 알림
+    socket.to(mapIdStr).emit('player_joined', players[socket.id]);
+
+    // 맵별 접속자 수 갱신 브로드캐스트
+    broadcastMapPlayers();
+
+    console.log(`플레이어 ${socket.id} → 맵 ${mapIdStr} 입장`);
+  });
 
   // 위치 이동 시 상태 업데이트 (상태 동기화 모델)
   socket.on('MOVE', (data) => {
-    if (players[socket.id]) {
-      // 서버 권한(Server Authoritative)이므로 여기선 클라이언트 값 검증을 추가해야 하나, 데모상 그대로 수용
-      players[socket.id].position = data.position;
-      if (data.quaternion) {
-        players[socket.id].quaternion = data.quaternion;
-      }
-      
-      // 같은 방의 모든 클라이언트에게 변경된 위치/회전값 브로드캐스팅
-      socket.to(players[socket.id].room).emit('STATE_UPDATE', {
-        id: socket.id,
-        position: data.position,
-        quaternion: data.quaternion,
-        upperYaw: data.upperYaw,
-        upperPitch: data.upperPitch
-      });
+    const player = players[socket.id];
+    if (!player || !player.mapId) return;
+    
+    player.position = data.position;
+    if (data.quaternion) {
+      player.quaternion = data.quaternion;
     }
+    
+    // 해당 맵의 클라이언트에게만 브로드캐스팅
+    socket.to(player.mapId).emit('STATE_UPDATE', {
+      id: socket.id,
+      position: data.position,
+      quaternion: data.quaternion,
+      upperYaw: data.upperYaw,
+      upperPitch: data.upperPitch
+    });
   });
 
   // 데미지 처리 이벤트
   socket.on('TAKE_DAMAGE', (data: { targetId: string, damage: number, shooterId: string, direction: {x: number, y: number, z: number} }) => {
     const target = players[data.targetId];
-    if (target && target.hp > 0) {
+    if (target && target.hp > 0 && target.mapId) {
       target.hp -= data.damage;
-      const room = target.room || DEFAULT_ROOM;
+      const room = target.mapId;
 
-      // 데미지 발생 알림 브로드캐스트
+      if (target.hp <= 0) target.hp = 0;
+
+      // 데미지 발생 알림 브로드캐스트 (해당 룸에만)
       io.to(room).emit('PLAYER_DAMAGED', {
         targetId: data.targetId,
         hp: target.hp,
         shooterId: data.shooterId,
         direction: data.direction
       });
-
-      // 사망 처리 (자동 리스폰 제거, 0으로 고정)
-      if (target.hp <= 0) {
-        target.hp = 0;
-        // 클라이언트에서 움직임 제한을 위해 0으로 전송
-        io.to(room).emit('PLAYER_DAMAGED', {
-          targetId: data.targetId,
-          hp: 0,
-          shooterId: data.shooterId,
-          direction: data.direction
-        });
-      }
     }
   });
 
   // 채팅 메시지 수신 및 전달
   socket.on('CHAT_MESSAGE', (data: { text: string }) => {
-    socket.to(players[socket.id]?.room || DEFAULT_ROOM).emit('CHAT_MESSAGE', {
-        sender: players[socket.id]?.name || '익명',
+    const player = players[socket.id];
+    if (!player || !player.mapId) return;
+    
+    socket.to(player.mapId).emit('CHAT_MESSAGE', {
+        sender: player.name || '익명',
         text: data.text
     });
   });
 
-  // 탄환 발사 이벤트 중계 (같은 방 플레이어들에게만 전달)
+  // 탄환 발사 이벤트 중계 (같은 맵 플레이어들에게만 전달)
   socket.on('SHOOT', (data: {
     origin: { x: number, y: number, z: number };
     direction: { x: number, y: number, z: number };
   }) => {
-    const room = players[socket.id]?.room || DEFAULT_ROOM;
-    socket.to(room).emit('SHOOT', {
+    const player = players[socket.id];
+    if (!player || !player.mapId) return;
+    
+    socket.to(player.mapId).emit('SHOOT', {
       id: socket.id,
       origin: data.origin,
       direction: data.direction,
@@ -156,11 +189,13 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('disconnect', () => {
     console.log(`플레이어 접속 해제: ${socket.id}`);
-    const leftPlayerRoom = players[socket.id]?.room || DEFAULT_ROOM;
+    const mapId = players[socket.id]?.mapId;
     delete players[socket.id];
     
-    // 같은 방 안의 플레이어들에게만 접속 해제 알림
-    io.to(leftPlayerRoom).emit('player_left', socket.id);
+    if (mapId) {
+      io.to(mapId).emit('player_left', socket.id);
+    }
+    broadcastMapPlayers();
   });
 });
 
@@ -182,7 +217,7 @@ setInterval(() => {
       const dz = p1.position.z - p2.position.z;
       const distSq = dx*dx + dy*dy + dz*dz;
 
-      if (distSq < 2.5 * 2.5) { // 약 2.5유닛 이내면 회복
+      if (distSq < 2.5 * 2.5 && p1.mapId === p2.mapId && p1.mapId) { // 동일 맵 내 약 2.5유닛 이내면 회복
         hasHealer = true;
         break;
       }
@@ -190,7 +225,7 @@ setInterval(() => {
 
     if (hasHealer) {
       p1.hp = Math.min(100, p1.hp + 10);
-      io.to(p1.room).emit('PLAYER_DAMAGED', {
+      io.to(p1.mapId).emit('PLAYER_DAMAGED', {
         targetId: p1.id,
         hp: p1.hp,
         shooterId: 'system_heal',

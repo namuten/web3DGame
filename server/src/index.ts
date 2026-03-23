@@ -3,8 +3,11 @@ import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { pool } from './db.js';
-import { ensureTable } from './models/Character.js';
+import { ensureTable as ensureCharacterTable } from './models/Character.js';
+import { ensureTable as ensureMapTable } from './models/Map.js';
 import characterRoutes from './routes/characters.js';
+import mapRoutes from './routes/maps.js';
+import * as MapModel from './models/Map.js';
 
 const app = express();
 app.use(cors());
@@ -15,13 +18,16 @@ pool.getConnection()
   .then(async (conn) => {
     console.log('✅ MySQL 연결 성공');
     conn.release();
-    await ensureTable();
+    await ensureCharacterTable();
     console.log('✅ characters 테이블 준비 완료');
+    await ensureMapTable();
+    console.log('✅ maps 테이블 준비 완료');
   })
-  .catch((err) => console.error('❌ MySQL 연결 실패:', err));
+  .catch((err: any) => console.error('❌ MySQL 연결 실패:', err));
 
-// 캐릭터 API 라우터
+// API 라우터
 app.use('/api/characters', characterRoutes);
+app.use('/api/maps', mapRoutes);
 
 app.get('/', (_req, res) => res.send('OK'));
 

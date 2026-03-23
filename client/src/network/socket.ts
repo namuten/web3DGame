@@ -9,6 +9,7 @@ import { createNameTag } from '../game/nameTag';
 import { otherPlayers } from './players';
 import { toThreeColor } from '../utils';
 import type { CharacterSelection } from '../ui/characterSelect';
+import type { MapConfig } from '../types/map';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://220.85.41.214:3000';
@@ -209,4 +210,18 @@ export const sendShoot = (origin: THREE.Vector3, direction: THREE.Vector3) => {
         origin: { x: origin.x, y: origin.y, z: origin.z },
         direction: { x: direction.x, y: direction.y, z: direction.z },
     });
+};
+
+// ─── 맵 시스템 추가 ───────────────────────────────────
+
+export const joinMap = (mapId: number) => {
+  socket.emit('JOIN_MAP', { mapId });
+};
+
+export const onMapConfig = (callback: (config: MapConfig) => void) => {
+  socket.on('MAP_CONFIG', callback);
+};
+
+export const onMapPlayers = (callback: (counts: Record<string, number>) => void) => {
+  socket.on('MAP_PLAYERS', callback);
 };

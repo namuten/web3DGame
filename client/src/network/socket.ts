@@ -12,7 +12,7 @@ import type { CharacterSelection } from '../ui/characterSelect';
 import type { MapConfig } from '../types/map';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://220.85.41.214:3000';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://namuten.duckdns.org';
 export const socket: Socket = io(SERVER_URL, { autoConnect: false });
 
 // 이름표 스프라이트 직접 참조 Map (getObjectByName 대신)

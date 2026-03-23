@@ -132,6 +132,7 @@ export const initWorld = (config: MapConfig) => {
   floatingIsland.receiveShadow = true;
   floatingIsland.userData.isWorldObj = true;
   scene.add(floatingIsland);
+  worldCollidables.push(floatingIsland);
 
   // 3. 물 (강/바다)
   const waterGeo = new THREE.PlaneGeometry(5000, 5000);

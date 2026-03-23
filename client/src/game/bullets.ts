@@ -13,8 +13,9 @@ interface Bullet {
   ownerId: string;
 }
 
-const BULLET_SPEED = 20;
-const BULLET_LIFETIME = 2.5;
+const BULLET_SPEED = 25;
+const BULLET_LIFETIME = 3.0;
+const BULLET_GRAVITY = -9.8; // 탄환 낙하 가속도
 
 // 원격 플레이어 색상 저장
 const remotePlayerColors: Record<string, number> = {};
@@ -128,6 +129,10 @@ export const updateBullets = (deltaTime: number) => {
     }
 
     const startPos = b.mesh.position.clone();
+    
+    // 중력 가속도 적용 (속도의 y축 성분 감소)
+    b.velocity.y += BULLET_GRAVITY * deltaTime;
+    
     const moveStep = b.velocity.clone().multiplyScalar(deltaTime);
     const endPos = startPos.clone().add(moveStep);
 
@@ -139,7 +144,7 @@ export const updateBullets = (deltaTime: number) => {
     targets.forEach(t => t.updateMatrixWorld());
 
     raycaster.set(startPos, b.velocity.clone().normalize());
-    raycaster.far = moveStep.length() + 1.2; // 여유 범위 확대
+    raycaster.far = moveStep.length() + 0.5; // 이동 거리만큼만 레이캐스팅
     const intersects = raycaster.intersectObjects(targets, true);
 
     let hitOccurred = false;

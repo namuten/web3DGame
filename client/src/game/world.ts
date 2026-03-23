@@ -131,6 +131,7 @@ export const initWorld = (config: MapConfig) => {
   floatingIsland.position.y = -islandThickness / 2;
   floatingIsland.receiveShadow = true;
   floatingIsland.userData.isWorldObj = true;
+  floatingIsland.userData.isFloor = true;
   scene.add(floatingIsland);
   worldCollidables.push(floatingIsland);
 

@@ -128,7 +128,9 @@ const checkCollision = (position: THREE.Vector3): boolean => {
 
   for (const obj of worldCollidables) {
     if (obj instanceof THREE.Mesh) {
-      // 메시의 바운딩 박스 계산 (최적화를 위해 매번하기 보다는 월드 생성시 해두면 좋음)
+      // 윗면 지형은 충돌 제외 (탄환 용도)
+      if (obj.userData && obj.userData.isFloor) continue;
+      
       obstacleBox.setFromObject(obj);
       if (playerBox.intersectsBox(obstacleBox)) return true;
     }
@@ -363,6 +365,7 @@ export const updatePlayer = (deltaTime: number) => {
 
     for (const obj of worldCollidables) {
       if (!(obj instanceof THREE.Mesh)) continue;
+      if (obj.userData && obj.userData.isFloor) continue;
       obstacleBox.setFromObject(obj);
 
       // XZ 범위 밖이면 스킵

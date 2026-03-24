@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { toThreeColor } from './utils';
+import type { MapData } from './mapApi';
 
 // ─── characterModel 복사 (admin 전용) ────────────────────────
 
@@ -196,10 +197,76 @@ export class Preview3D {
   }
 
   loadCharacter(bodyColor: string, flowerColor: string, visorColor: string) {
-    if (this.model) this.scene.remove(this.model);
+    if (this.model) { this.scene.remove(this.model); this.model = null; }
+    this.scene.background = new THREE.Color(0xA2D2FF);
+    this.scene.fog = null;
     this.model = createCharacterModel(toThreeColor(bodyColor), toThreeColor(flowerColor));
     (this.model as any).setVisorColor(toThreeColor(visorColor));
     this.model.position.set(0, -1, 0);
+    this.scene.add(this.model);
+  }
+
+  loadMap(config: MapData) {
+    if (this.model) { this.scene.remove(this.model); this.model = null; }
+    
+    this.scene.background = new THREE.Color(config.bgColor);
+    if (config.fogDensity > 0) {
+      this.scene.fog = new THREE.FogExp2(new THREE.Color(config.bgColor).getHex(), config.fogDensity);
+    } else {
+      this.scene.fog = null;
+    }
+
+    const group = new THREE.Group();
+    
+    // 단순화된 바닥 (preview 용으로 스케일을 줄임)
+    const scale = 0.05; // 실제 코어 사이즈 400을 preview 용 20 정도로 축소
+    const previewFloorSize = config.floorSize * scale;
+    const islandGeo = new THREE.BoxGeometry(previewFloorSize, 2, previewFloorSize, 10, 1, 10);
+    const islandMat = new THREE.MeshStandardMaterial({ color: 0x5a9e3a, roughness: 1 });
+    const island = new THREE.Mesh(islandGeo, islandMat);
+    island.position.y = -1;
+    group.add(island);
+
+    // 샘플 장애물 배치
+    let seedVal = config.seed;
+    const seededRandom = () => {
+      seedVal = (seedVal * 1664525 + 1013904223) & 0xffffffff;
+      return (seedVal >>> 0) / 0xffffffff;
+    };
+
+    const colors = config.obstacleColors.map(c => new THREE.Color(c).getHex());
+    const previewPlayZone = config.playZone * scale;
+    // 너무 많으면 버벅이므로 최대 20개만 표시
+    const obstacleCount = Math.min(20, config.obstacleCount); 
+    
+    for (let i = 0; i < obstacleCount; i++) {
+        if (colors.length === 0) break;
+        const color = colors[Math.floor(seededRandom() * colors.length)];
+        
+        let obs;
+        if (config.theme === 'pastel') {
+             obs = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5), new THREE.MeshStandardMaterial({ color }));
+             obs.position.y = 0.75;
+        } else if (config.theme === 'neon') {
+             obs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1 }));
+             obs.position.y = 1.0;
+        } else if (config.theme === 'candy') {
+             obs = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshStandardMaterial({ color }));
+             obs.position.y = 0.6;
+        } else {
+             obs = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color }));
+             obs.position.y = 0.4;
+        }
+
+        const rx = seededRandom() * previewPlayZone * 2 - previewPlayZone;
+        const rz = seededRandom() * previewPlayZone * 2 - previewPlayZone;
+        
+        obs.position.x = rx;
+        obs.position.z = rz;
+        group.add(obs);
+    }
+
+    this.model = group;
     this.scene.add(this.model);
   }
 

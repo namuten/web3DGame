@@ -1,4 +1,7 @@
 import { MapData, createMap, updateMap } from './mapApi';
+import { Preview3D } from './preview3d';
+
+let preview: Preview3D | null = null;
 
 const defaultMap = (): Omit<MapData, 'id'> => ({
   name: '',
@@ -30,11 +33,11 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
       const picker = document.createElement('input');
       picker.type = 'color';
       picker.value = c;
-      picker.addEventListener('input', () => { colors[i] = picker.value; });
+      picker.addEventListener('input', () => { colors[i] = picker.value; updatePreview(); });
       const removeBtn = document.createElement('button');
       removeBtn.textContent = '−';
       removeBtn.type = 'button';
-      removeBtn.addEventListener('click', () => { colors.splice(i, 1); renderColorList(); });
+      removeBtn.addEventListener('click', () => { colors.splice(i, 1); renderColorList(); updatePreview(); });
       row.appendChild(picker);
       row.appendChild(removeBtn);
       el.appendChild(row);
@@ -43,8 +46,12 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
 
   container.innerHTML = `
     <h2 style="margin-bottom:20px;font-size:16px;">${map ? '맵 편집' : '새 맵'}</h2>
-    <div class="fields-col" style="max-width:480px;">
-      <div class="form-group">
+    <div class="form-inner">
+      <div class="preview-col">
+        <canvas id="map-preview-canvas" tabindex="0"></canvas>
+      </div>
+      <div class="fields-col">
+        <div class="form-group">
         <label>맵 이름 *</label>
         <input id="m-name" type="text" maxlength="100" value="${data.name}" placeholder="맵 이름" />
       </div>
@@ -93,26 +100,57 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
         <label>활성 여부</label>
         <input id="m-active" type="checkbox" ${data.isActive ? 'checked' : ''} />
       </div>
+      </div>
       <div style="display:flex;gap:8px;margin-top:16px;">
         <button id="save-btn" style="flex:1;">저장</button>
         <button id="cancel-btn" style="flex:1;background:#666;">취소</button>
       </div>
     </div>
+  </div>
   `;
+
+  // 3D 미리보기 초기화
+  const canvas = document.getElementById('map-preview-canvas') as HTMLCanvasElement;
+  canvas.width = canvas.clientWidth || 400;
+  canvas.height = canvas.clientHeight || 400;
+  if (preview) preview.destroy();
+  preview = new Preview3D(canvas);
+
+  const updatePreview = () => {
+    if (!preview) return;
+    const payload = {
+      name: 'Preview',
+      theme: (document.getElementById('m-theme')  as HTMLSelectElement).value,
+      obstacleCount:  Number((document.getElementById('m-obs')   as HTMLInputElement).value),
+      floorSize:      Number((document.getElementById('m-floor') as HTMLInputElement).value),
+      playZone:       Number((document.getElementById('m-pz')    as HTMLInputElement).value),
+      fogDensity:     Number((document.getElementById('m-fog')   as HTMLInputElement).value),
+      bgColor:        (document.getElementById('m-bg')     as HTMLInputElement).value,
+      seed:           Number((document.getElementById('m-seed')  as HTMLInputElement).value),
+      isActive:       true,
+      obstacleColors: colors,
+    };
+    preview.loadMap(payload as any);
+  };
+
+  preview.loadMap(data as any);
 
   renderColorList();
 
   document.getElementById('m-obs')!.addEventListener('input', (e) => {
     document.getElementById('obs-val')!.textContent = (e.target as HTMLInputElement).value;
+    updatePreview();
   });
 
   document.getElementById('add-color-btn')!.addEventListener('click', () => {
     colors.push('#FFFFFF');
     renderColorList();
+    updatePreview();
   });
 
   document.getElementById('rand-seed-btn')!.addEventListener('click', () => {
     (document.getElementById('m-seed') as HTMLInputElement).value = String(randomSeed());
+    updatePreview();
   });
 
   // 실시간 플레이존 최대값 동기화
@@ -123,13 +161,21 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
     pzInput.max = String(maxPZ);
     if (Number(pzInput.value) > maxPZ) pzInput.value = String(maxPZ);
     document.getElementById('pz-val')!.textContent = pzInput.value;
+    updatePreview();
   });
   pzInput.addEventListener('input', () => {
     document.getElementById('pz-val')!.textContent = pzInput.value;
+    updatePreview();
+  });
+
+  // 다른 필드들 변경 시 미리보기 업데이트
+  ['m-theme', 'm-fog', 'm-bg', 'm-seed'].forEach(id => {
+    document.getElementById(id)!.addEventListener('input', updatePreview);
   });
 
   document.getElementById('cancel-btn')!.addEventListener('click', () => {
     container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
+    if (preview) { preview.destroy(); preview = null; }
   });
 
   document.getElementById('save-btn')!.addEventListener('click', async () => {
@@ -162,6 +208,7 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
       }
       alert('저장되었습니다.');
       container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
+      if (preview) { preview.destroy(); preview = null; }
       onSaved();
     } catch (e: any) {
       console.error('[MapForm] Save error:', e);

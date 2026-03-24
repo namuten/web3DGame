@@ -60,13 +60,19 @@ const loadMaps = async () => {
 const onSelectMap = (map: MapData) => {
   selectedMapId = map.id ?? null;
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
-  renderMapForm(map, async () => { await loadMaps(); });
+  renderMapForm(map, async (savedMap?: MapData) => { 
+    await loadMaps(); 
+    if (savedMap) onSelectMap(savedMap);
+  });
 };
 
 const onNewMap = () => {
   selectedMapId = null;
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
-  renderMapForm(null, async () => { await loadMaps(); });
+  renderMapForm(null, async (savedMap?: MapData) => { 
+    await loadMaps(); 
+    if (savedMap) onSelectMap(savedMap);
+  });
 };
 
 // ─── 초기화 ─────────────────────────────────────────

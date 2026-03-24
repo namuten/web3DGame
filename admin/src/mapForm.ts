@@ -18,7 +18,7 @@ const defaultMap = (): Omit<MapData, 'id'> => ({
 
 const randomSeed = () => Math.floor(Math.random() * 2147483647);
 
-export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
+export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData) => void) => {
   const container = document.getElementById('map-form-container')!;
   const data: Omit<MapData, 'id'> = map ? { ...map } : defaultMap();
   let colors: string[] = [...data.obstacleColors];
@@ -200,17 +200,16 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
     console.log('[MapForm] Saving payload:', payload);
 
     try {
+      let savedResult: MapData;
       if (map?.id) {
         console.log('[MapForm] Updating existing map:', map.id);
-        await updateMap(map.id, payload);
+        savedResult = await updateMap(map.id, payload);
       } else {
         console.log('[MapForm] Creating new map');
-        await createMap(payload);
+        savedResult = await createMap(payload);
       }
       alert('저장되었습니다.');
-      container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
-      if (preview) { preview.destroy(); preview = null; }
-      onSaved();
+      onSaved(savedResult);
     } catch (e: any) {
       console.error('[MapForm] Save error:', e);
       alert('저장 실패: ' + e.message);

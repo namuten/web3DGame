@@ -102,8 +102,8 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
       </div>
 
       <div class="form-actions" style="display:flex;gap:8px;margin-top:16px;">
-        <button id="save-btn" style="flex:1;">저장</button>
-        <button id="cancel-btn" style="flex:1;background:#666;">취소</button>
+        <button id="m-save-btn" style="flex:1;">저장</button>
+        <button id="m-cancel-btn" style="flex:1;background:#666;">취소</button>
       </div>
     </div>
   </div>
@@ -174,12 +174,12 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
     document.getElementById(id)!.addEventListener('input', updatePreview);
   });
 
-  document.getElementById('cancel-btn')!.addEventListener('click', () => {
+  document.getElementById('m-cancel-btn')!.addEventListener('click', () => {
     container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
     if (preview) { preview.destroy(); preview = null; }
   });
 
-  document.getElementById('save-btn')!.addEventListener('click', async () => {
+  document.getElementById('m-save-btn')!.addEventListener('click', async () => {
     const name = (document.getElementById('m-name') as HTMLInputElement).value.trim();
     if (!name) { alert('맵 이름을 입력하세요.'); return; }
     if (colors.length === 0) { alert('컬러 팔레트에 최소 1개 이상 입력하세요.'); return; }

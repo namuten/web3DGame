@@ -25,6 +25,7 @@ import {
   registerCollidables,
   setShootCallback,
 } from './game/bullets';
+import { monsterManager } from './game/monster';
 
 // 화면에 렌더러 등록
 mountRenderer('app');
@@ -49,9 +50,11 @@ const clock = new THREE.Clock();
 const animate = () => {
   requestAnimationFrame(animate);
   const deltaTime = clock.getDelta();
+  const time = clock.getElapsedTime();
   updatePlayer(deltaTime);
   updateBullets(deltaTime);
-  updateWorld(clock.getElapsedTime());
+  updateWorld(time);
+  monsterManager.animate(time, deltaTime);
   broadcastLocalPosition();
   renderer.render(scene, camera);
 };

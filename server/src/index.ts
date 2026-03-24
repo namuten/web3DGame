@@ -45,6 +45,10 @@ const PORT = process.env.PORT || 3000;
 // 접속한 플레이어들의 상태를 메모리에 잠시 저장
 const players: Record<string, any> = {};
 
+// ─── 몬스터(슬라임) 상태 관리 ──────────────────────────
+const monsters: Record<string, any> = {}; // mapId -> Monster object
+const spawnTimers: Record<string, NodeJS.Timeout> = {}; // mapId -> Timer
+
 /** 맵별 접속자 수를 전체 소켓에 broadcast */
 const broadcastMapPlayers = () => {
   const counts: Record<string, number> = {};
@@ -124,6 +128,40 @@ io.on('connection', (socket: Socket) => {
     // 맵별 접속자 수 갱신 브로드캐스트
     broadcastMapPlayers();
 
+    // 4. 슬라임 스폰 로직 (맵에 슬라임이 없고 타이머도 없을 때 소환 시도)
+    const playersInMap = Object.values(players).filter(p => p.mapId === mapIdStr).length;
+    socket.emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Map: ${mapIdStr}, Players: ${playersInMap}, MonsterExists: ${!!monsters[mapIdStr]}` });
+    
+    if (!monsters[mapIdStr] && !spawnTimers[mapIdStr]) {
+      socket.emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime spawn timer started (5s)...` });
+      spawnTimers[mapIdStr] = setTimeout(() => {
+        const config = mapConfig;
+        const limit = config.playZone || 80;
+        const monster = {
+          id: 'boss_slime',
+          mapId: mapIdStr,
+          position: { 
+            x: (Math.random() - 0.5) * limit * 0.8,
+            y: 5, 
+            z: (Math.random() - 0.5) * limit * 0.8 
+          },
+          targetId: null,
+          speed: 0.45,
+          alive: true,
+          hp: 300,
+          maxHp: 300,
+          scale: 1.0
+        };
+        monsters[mapIdStr] = monster;
+        io.to(mapIdStr).emit('MONSTER_SPAWN', monster);
+        io.to(mapIdStr).emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime Spawned at X:${monster.position.x.toFixed(1)}, Z:${monster.position.z.toFixed(1)}` });
+        delete spawnTimers[mapIdStr];
+      }, 5000);
+    } else if (monsters[mapIdStr]) {
+      socket.emit('MONSTER_SPAWN', monsters[mapIdStr]);
+      socket.emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Existing Slime found and sent to client.` });
+    }
+
     console.log(`플레이어 ${socket.id} → 맵 ${mapIdStr} 입장`);
   });
 
@@ -149,11 +187,32 @@ io.on('connection', (socket: Socket) => {
 
   // 데미지 처리 이벤트
   socket.on('TAKE_DAMAGE', (data: { targetId: string, damage: number, shooterId: string, direction: {x: number, y: number, z: number} }) => {
-    const target = players[data.targetId];
-    if (target && target.hp > 0 && target.mapId) {
-      target.hp -= data.damage;
-      const room = target.mapId;
+    const player = players[socket.id];
+    if (!player || !player.mapId) return;
+    const room = player.mapId;
 
+    if (data.targetId === 'boss_slime') {
+      const monster = monsters[room];
+      if (monster && monster.alive) {
+        monster.hp -= data.damage;
+        monster.scale = Math.max(0.15, monster.hp / monster.maxHp);
+
+        if (monster.hp <= 0) {
+          monster.hp = 0;
+          monster.alive = false;
+          io.to(room).emit('MONSTER_DEFEATED', { id: monster.id });
+          delete monsters[room];
+          io.to(room).emit('CHAT_MESSAGE', { sender: 'System', text: '보스 슬라임을 물리쳤습니다!' });
+        } else {
+          io.to(room).emit('MONSTER_DAMAGED', { id: monster.id, hp: monster.hp, maxHp: monster.maxHp, scale: monster.scale });
+        }
+      }
+      return;
+    }
+
+    const target = players[data.targetId];
+    if (target && target.hp > 0 && target.mapId === room) {
+      target.hp -= data.damage;
       if (target.hp <= 0) target.hp = 0;
 
       // 데미지 발생 알림 브로드캐스트 (해당 룸에만)
@@ -195,14 +254,94 @@ io.on('connection', (socket: Socket) => {
   socket.on('disconnect', () => {
     console.log(`플레이어 접속 해제: ${socket.id}`);
     const mapId = players[socket.id]?.mapId;
-    delete players[socket.id];
-    
     if (mapId) {
       io.to(mapId).emit('player_left', socket.id);
+      
+      // 해당 맵에 아무도 없으면 몬스터 및 타이머 제거
+      const remaining = Object.values(players).filter(p => (p.id !== socket.id) && (p.mapId === mapId)).length;
+      if (remaining === 0) {
+        if (spawnTimers[mapId]) {
+          clearTimeout(spawnTimers[mapId]);
+          delete spawnTimers[mapId];
+        }
+        delete monsters[mapId];
+        console.log(`[Monster] 맵 ${mapId} 비어있음. 몬스터 제거.`);
+      }
     }
+    delete players[socket.id];
     broadcastMapPlayers();
   });
 });
+
+// ─── 몬스터 AI 및 충돌감지 루프 (약 100ms 마다) ─────────────
+setInterval(() => {
+  for (const mapId in monsters) {
+    const monster = monsters[mapId];
+    if (!monster || !monster.alive) continue;
+
+    // 1. 타겟 또는 플레이어 추적
+    const roomPlayers = Object.values(players).filter(p => p.mapId === mapId && p.hp > 0);
+    if (roomPlayers.length === 0) {
+      if (Object.values(players).filter(p => p.mapId === mapId).length > 0) {
+          // 모든 플레이어가 죽음 -> 몬스터 승리
+          io.to(mapId).emit('MONSTER_WIN', { message: 'The Boss Slime wins!' });
+          monster.alive = false; // 한 번만 방송되도록
+          setTimeout(() => { monster.alive = true; }, 5000); // 5초 뒤 다시 활동
+      }
+      continue;
+    }
+
+    // 가장 가까운 플레이어 찾기
+    let target = null;
+    let minDist = Infinity;
+    for (const p of roomPlayers) {
+      const dx = monster.position.x - p.position.x;
+      const dz = monster.position.z - p.position.z;
+      const d = dx*dx + dz*dz;
+      if (d < minDist) {
+        minDist = d;
+        target = p;
+      }
+    }
+
+    if (target) {
+      // 플레이어 방향으로 이동 (스케일이 캐릭터 크기보다 작아지면(approx 0.3 미만) 이동 불가)
+      const dx = target.position.x - monster.position.x;
+      const dz = target.position.z - monster.position.z;
+      const mag = Math.sqrt(dx*dx + dz*dz);
+      const freezeThreshold = 0.3; // 캐릭터 크기 기준 임계값
+      const scaleRadius = 5.0 * (monster.scale || 1.0);
+
+      if (mag > 0.1 && (monster.scale === undefined || monster.scale > freezeThreshold)) {
+        monster.position.x += (dx / mag) * monster.speed;
+        monster.position.z += (dz / mag) * monster.speed;
+      }
+
+      // 충돌(Touch) 감지: 거리 = scaleRadius 유닛 미만 (스케일에 비례)
+      if (mag < scaleRadius) {
+        target.hp = 0;
+        io.to(mapId).emit('PLAYER_DAMAGED', {
+          targetId: target.id,
+          hp: 0,
+          shooterId: 'boss_slime',
+          direction: { x: dx/mag, y: 0, z: dz/mag }
+        });
+        console.log(`[Monster] 슬라임이 ${target.id}를 처치함!`);
+
+        // 캐릭터 처치 시 슬라임 체력 회복 및 크기 원상 복구 증가
+        monster.hp = Math.min(monster.maxHp, monster.hp + 50);
+        monster.scale = Math.max(0.15, monster.hp / monster.maxHp);
+        io.to(mapId).emit('MONSTER_DAMAGED', { id: monster.id, hp: monster.hp, maxHp: monster.maxHp, scale: monster.scale });
+      }
+    }
+
+    // 모든 플레이어에게 위치 전송
+    io.to(mapId).emit('MONSTER_UPDATE', { 
+        id: monster.id, 
+        position: monster.position 
+    });
+  }
+}, 100);
 
 // ─── 주기적으로 플레이어 간 거리 체크 및 HP 회복 (1초 간격) ──────────
 setInterval(() => {

@@ -3,6 +3,7 @@ import { scene } from '../engine/scene';
 import { playerMesh, cameraPhi, PHI_MAX, getLocalBodyColor } from './player';
 import { otherPlayers } from '../network/players';
 import { socket } from '../network/socket';
+import { monsterManager } from './monster';
 
 // ─── 탄환 데이터 구조 ─────────────────────────────────────────
 interface Bullet {
@@ -136,9 +137,12 @@ export const updateBullets = (deltaTime: number) => {
     const moveStep = b.velocity.clone().multiplyScalar(deltaTime);
     const endPos = startPos.clone().add(moveStep);
 
-    // 충돌 검사 대상을 합침 (월드 장애물 + 다른 플레이어들)
+    // 충돌 검사 대상을 합침 (월드 장애물 + 다른 플레이어들 + 몬스터)
     const playersToHit = Object.values(otherPlayers);
     const targets = [...collidables, ...playersToHit];
+    if (monsterManager.monsterMesh) {
+      targets.push(monsterManager.monsterMesh);
+    }
 
     // 레이캐스팅 전 월드 행렬 강제 업데이트 (위치 오차 방지)
     targets.forEach(t => t.updateMatrixWorld());
@@ -162,6 +166,10 @@ export const updateBullets = (deltaTime: number) => {
             targetId = current.userData.playerId;
             break;
           }
+          if (current.userData && current.userData.isMonster) {
+            targetId = current.userData.monsterId;
+            break;
+          }
           current = current.parent;
         }
 
@@ -176,22 +184,34 @@ export const updateBullets = (deltaTime: number) => {
       }
       hitOccurred = true;
     } 
-    // 보조 수단: 레이캐스트 실패 시 플레이어 거리 기반 판정 (중심 거리 1.0 이내)
+    // 보조 수단: 레이캐스트 실패 시 거리 기반 판정 (중심 거리 1.0 이내)
     else if (b.ownerId === 'local') {
+      let hitId: string | null = null;
       for (const id in otherPlayers) {
         const other = otherPlayers[id];
         const dist = endPos.distanceTo(other.position);
-        if (dist < 1.2) { // 캡슐 반경 0.5 + 탄환 반경 0.5 + 여유 0.2
-          spawnImpact(endPos);
-          socket.emit('TAKE_DAMAGE', {
-            targetId: id,
-            damage: 15,
-            shooterId: socket.id,
-            direction: b.velocity.clone().normalize()
-          });
-          hitOccurred = true;
+        if (dist < 1.2) { 
+          hitId = id;
           break;
         }
+      }
+      if (!hitId && monsterManager.monsterMesh) {
+        // 슬라임 반경은 좀 더 크므로 거리를 길게 잡음
+        const monsterDist = endPos.distanceTo(monsterManager.monsterMesh.position);
+        if (monsterDist < 8.0) { // 슬라임 스케일과 구체 반경 고려
+          hitId = 'boss_slime';
+        }
+      }
+
+      if (hitId) {
+        spawnImpact(endPos);
+        socket.emit('TAKE_DAMAGE', {
+          targetId: hitId,
+          damage: 15,
+          shooterId: socket.id,
+          direction: b.velocity.clone().normalize()
+        });
+        hitOccurred = true;
       }
     }
 

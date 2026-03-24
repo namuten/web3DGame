@@ -10,6 +10,8 @@ import { otherPlayers } from './players';
 import { toThreeColor } from '../utils';
 import type { CharacterSelection } from '../ui/characterSelect';
 import type { MapConfig } from '../types/map';
+import type { MonsterData } from '../game/monster';
+import { monsterManager } from '../game/monster';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://namuten.duckdns.org:3000';
@@ -212,7 +214,58 @@ export const sendShoot = (origin: THREE.Vector3, direction: THREE.Vector3) => {
     });
 };
 
-// ─── 맵 시스템 추가 ───────────────────────────────────
+// ─── 몬스터 시스템 추가 ───────────────────────────────────
+
+socket.on('MONSTER_SPAWN', (data: MonsterData) => {
+    monsterManager.spawn(data);
+    appendMessage('Boss Slime', '거대 슬라임이 나타났습니다! 도망가세요!', '#ff0000');
+    
+    // 몬스터 등장 오버레이 표시
+    const banner = document.createElement('div');
+    banner.style.cssText = `
+        position: fixed; top: 20%; left: 50%; translate: -50% -50%;
+        color: #ff0000; font-size: 60px; font-weight: bold; font-family: sans-serif;
+        text-shadow: 0 0 20px black; pointer-events: none; z-index: 10000;
+        animation: blink 0.5s infinite alternate;
+    `;
+    banner.innerText = "⚠️ WARNING: BOSS SLIME SPAWNED!";
+    document.body.appendChild(banner);
+    
+    const style = document.createElement('style');
+    style.textContent = `@keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }`;
+    document.head.appendChild(style);
+
+    setTimeout(() => { if (banner.parentNode) banner.remove(); }, 5000);
+});
+
+socket.on('MONSTER_UPDATE', (data: { id: string, position: { x: number, y: number, z: number } }) => {
+    monsterManager.update(data);
+});
+
+socket.on('MONSTER_DAMAGED', (data: { id: string, hp: number, maxHp: number, scale?: number }) => {
+    monsterManager.damage(data.hp, data.maxHp, data.scale || 1.0);
+});
+
+socket.on('MONSTER_DEFEATED', (_data: { id: string }) => {
+    monsterManager.remove();
+    // 이펙트나 UI 처리가 필요하다면 추가
+});
+
+socket.on('MONSTER_WIN', (data: { message: string }) => {
+    appendMessage('Boss Slime', '모든 플레이어를 처치했습니다! 슬라임 승리!', '#ff0000');
+    
+    // UI 오버레이 표시 (나중에 고도화 가능)
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: 50%; left: 50%; translate: -50% -50%;
+        color: white; font-size: 40px; font-weight: bold; background: rgba(0,0,0,0.8);
+        padding: 40px; border-radius: 20px; text-shadow: 0 0 10px red;
+        z-index: 10000;
+    `;
+    overlay.textContent = data.message;
+    document.body.appendChild(overlay);
+    setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 4000);
+});
 
 export const joinMap = (mapId: number) => {
   socket.emit('JOIN_MAP', { mapId });

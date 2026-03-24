@@ -68,8 +68,9 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
 
   // 3D 미리보기 초기화
   const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
-  canvas.width = canvas.clientWidth || 400;
-  canvas.height = canvas.clientHeight || 400;
+  const parent = canvas.parentElement;
+  canvas.width = parent ? parent.clientWidth : 600;
+  canvas.height = 600;
   if (preview) preview.destroy();
   preview = new Preview3D(canvas);
   preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor);

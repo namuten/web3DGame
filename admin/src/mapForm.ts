@@ -100,8 +100,8 @@ export const renderMapForm = (map: MapData | null, onSaved: () => void) => {
         <label>활성 여부</label>
         <input id="m-active" type="checkbox" ${data.isActive ? 'checked' : ''} />
       </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px;">
+
+      <div class="form-actions" style="display:flex;gap:8px;margin-top:16px;">
         <button id="save-btn" style="flex:1;">저장</button>
         <button id="cancel-btn" style="flex:1;background:#666;">취소</button>
       </div>

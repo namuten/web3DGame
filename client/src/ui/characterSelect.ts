@@ -44,7 +44,7 @@ const renderSnapshot = (char: CharacterData): Promise<string> => {
     camera.position.set(0, 2.5, 4);
     camera.lookAt(0, 1, 0);
 
-    const model = createCharacterModel(toThreeColor(char.bodyColor), toThreeColor(char.flowerColor));
+    const model = createCharacterModel(toThreeColor(char.bodyColor), toThreeColor(char.flowerColor), char.flowerType);
     if ((model as any).setVisorColor) (model as any).setVisorColor(toThreeColor(char.visorColor));
     model.position.set(0, -0.5, 0);
     scene.add(model);

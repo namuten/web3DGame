@@ -49,14 +49,16 @@ socket.on('current_players', (players: Record<string, any>) => {
         players[id].bodyColor,
         players[id].flowerColor,
         players[id].visorColor,
-        players[id].name
+        players[id].name,
+        players[id].flowerType
       );
     } else {
       console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
       setPlayerColor(
         toThreeColor(players[id].bodyColor),
         toThreeColor(players[id].flowerColor),
-        toThreeColor(players[id].visorColor)
+        toThreeColor(players[id].visorColor),
+        players[id].flowerType
       );
       if (players[id].hp !== undefined) {
         import('../game/player').then(m => m.applyDamage(players[id].hp));
@@ -73,7 +75,8 @@ socket.on('player_joined', (playerData: any) => {
     playerData.bodyColor,
     playerData.flowerColor,
     playerData.visorColor,
-    playerData.name
+    playerData.name,
+    playerData.flowerType
   );
 });
 
@@ -149,7 +152,8 @@ function addOtherPlayer(
   bodyColor: string = '#FFB7B2',
   flowerColor: string = '#FFB7B2',
   visorColor: string = '#333333',
-  name: string = '익명'
+  name: string = '익명',
+  flowerType: string = 'daisy'
 ) {
   if (otherPlayers[id]) return;
 
@@ -159,7 +163,7 @@ function addOtherPlayer(
 
   setRemotePlayerColor(id, bodyNum);
 
-  const model = createCharacterModel(bodyNum, flowerNum);
+  const model = createCharacterModel(bodyNum, flowerNum, flowerType);
   if ((model as any).setVisorColor) (model as any).setVisorColor(visorNum);
   model.position.set(initialPos.x, initialPos.y, initialPos.z);
   model.userData = { playerId: id };

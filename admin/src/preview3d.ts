@@ -4,7 +4,7 @@ import type { MapData } from './mapApi';
 
 // ─── characterModel 복사 (admin 전용) ────────────────────────
 
-const createFlowerModel = (flowerColor: number) => {
+const createFlowerModel = (flowerColor: number, flowerType: string = 'daisy') => {
   const flowerGroup = new THREE.Group();
   const stemSegments: THREE.Mesh[] = [];
   const stemPointCount = 8;
@@ -37,33 +37,94 @@ const createFlowerModel = (flowerColor: number) => {
     new THREE.SphereGeometry(0.08),
     new THREE.MeshStandardMaterial({ color: 0xffcc00 })
   );
-  center.scale.set(1, 0.6, 1);
-  flowerHead.add(center);
+  
+  const createPetalMat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0 });
+  const initialPetalMat = createPetalMat(flowerColor);
+  let petalMeshes: THREE.Mesh[] = [];
 
-  const petalGeo = new THREE.SphereGeometry(0.03, 8, 8);
-  petalGeo.scale(1.5, 0.2, 5);
-  const petalMat = new THREE.MeshStandardMaterial({ color: flowerColor, roughness: 0.1 });
-
-  for (let i = 0; i < 18; i++) {
-    const petal = new THREE.Mesh(petalGeo, petalMat);
-    const angle = (i / 18) * Math.PI * 2;
-    petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
-    petal.rotation.y = -angle;
-    petal.rotation.z = 0.1;
-    flowerHead.add(petal);
+  if (flowerType === 'rose') {
+    center.material = new THREE.MeshStandardMaterial({ color: 0x880000 });
+    center.scale.set(0.6, 0.4, 0.6);
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
+    petalGeo.scale(1, 1.5, 0.2);
+    for (let i = 0; i < 18; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 18) * Math.PI * 2 * 2; // spiral
+      const radius = 0.03 + (i * 0.003);
+      petal.position.set(Math.cos(angle) * radius, i * 0.004, Math.sin(angle) * radius);
+      petal.rotation.y = -angle + Math.PI/2;
+      petal.rotation.x = -0.1 - (i * 0.02);
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
+  } else if (flowerType === 'tulip') {
+    center.visible = false;
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
+    petalGeo.scale(0.8, 2.0, 0.2);
+    for (let i = 0; i < 6; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 6) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.04, 0.08, Math.sin(angle) * 0.04);
+      petal.rotation.y = -angle + Math.PI/2;
+      petal.rotation.x = 0.15;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
+  } else if (flowerType === 'sunflower') {
+    center.geometry = new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16) as any;
+    center.material = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
+    center.rotation.x = Math.PI/2;
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.02, 8, 8);
+    petalGeo.scale(1.5, 0.2, 3);
+    for (let i = 0; i < 24; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 24) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.16, 0, Math.sin(angle) * 0.16);
+      petal.rotation.y = -angle;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
+  } else if (flowerType === 'clover') {
+    center.visible = false;
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    petalGeo.scale(1, 0.2, 1);
+    for (let i = 0; i < 4; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 4) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.08, 0, Math.sin(angle) * 0.08);
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
+  } else {
+    // daisy
+    center.scale.set(1, 0.6, 1);
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.03, 8, 8);
+    petalGeo.scale(1.5, 0.2, 5);
+    for (let i = 0; i < 18; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 18) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+      petal.rotation.y = -angle;
+      petal.rotation.z = 0.1;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
   }
 
   (flowerGroup as any).setPetalColor = (color: number) => {
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.1 });
-    flowerHead.children.forEach(c => {
-      if (c instanceof THREE.Mesh && c !== center) c.material = mat;
-    });
+    const mat = createPetalMat(color);
+    petalMeshes.forEach(p => p.material = mat);
   };
 
   return flowerGroup;
 };
 
-const createCharacterModel = (bodyColor: number, flowerColor: number) => {
+const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType: string = 'daisy') => {
   const root = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.1 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1 });
@@ -100,7 +161,7 @@ const createCharacterModel = (bodyColor: number, flowerColor: number) => {
   visor.position.set(0, 0.4, 0.48);
   upperBody.add(visor);
 
-  const flower = createFlowerModel(flowerColor);
+  let flower = createFlowerModel(flowerColor, flowerType);
   flower.position.y = 0.6;
   upperBody.add(flower);
 
@@ -114,6 +175,12 @@ const createCharacterModel = (bodyColor: number, flowerColor: number) => {
   };
   (root as any).setVisorColor = (c: number) => {
     visor.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.2, metalness: 0.1 });
+  };
+  (root as any).setFlowerStyle = (c: number, t: string) => {
+    upperBody.remove(flower);
+    flower = createFlowerModel(c, t);
+    flower.position.y = 0.6;
+    upperBody.add(flower);
   };
 
   return root;
@@ -196,11 +263,11 @@ export class Preview3D {
     this._animate();
   }
 
-  loadCharacter(bodyColor: string, flowerColor: string, visorColor: string) {
+  loadCharacter(bodyColor: string, flowerColor: string, visorColor: string, flowerType: string = 'daisy') {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
     this.scene.background = new THREE.Color(0xA2D2FF);
     this.scene.fog = null;
-    this.model = createCharacterModel(toThreeColor(bodyColor), toThreeColor(flowerColor));
+    this.model = createCharacterModel(toThreeColor(bodyColor), toThreeColor(flowerColor), flowerType);
     (this.model as any).setVisorColor(toThreeColor(visorColor));
     this.model.position.set(0, -1, 0);
     this.scene.add(this.model);
@@ -270,11 +337,11 @@ export class Preview3D {
     this.scene.add(this.model);
   }
 
-  updateColor(type: 'body' | 'flower' | 'visor', hexColor: string) {
+  updateColor(type: 'body' | 'flower' | 'visor', hexColor: string, flowerType: string = 'daisy') {
     if (!this.model) return;
     const c = toThreeColor(hexColor);
     if (type === 'body')   (this.model as any).setBodyColor(c);
-    if (type === 'flower') (this.model as any).setFlowerColor(c);
+    if (type === 'flower') (this.model as any).setFlowerStyle(c, flowerType);
     if (type === 'visor')  (this.model as any).setVisorColor(c);
   }
 

@@ -56,6 +56,10 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
           <label>꽃 종류</label>
           <select id="f-type">
             <option value="daisy" ${data.flowerType === 'daisy' ? 'selected' : ''}>Daisy (데이지)</option>
+            <option value="rose" ${data.flowerType === 'rose' ? 'selected' : ''}>Rose (장미)</option>
+            <option value="tulip" ${data.flowerType === 'tulip' ? 'selected' : ''}>Tulip (튤립)</option>
+            <option value="sunflower" ${data.flowerType === 'sunflower' ? 'selected' : ''}>Sunflower (해바라기)</option>
+            <option value="clover" ${data.flowerType === 'clover' ? 'selected' : ''}>Clover (네잎클로버)</option>
           </select>
         </div>
         <div class="form-actions">
@@ -73,7 +77,7 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
   canvas.height = 600;
   if (preview) preview.destroy();
   preview = new Preview3D(canvas);
-  preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor);
+  preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor, data.flowerType || 'daisy');
 
   // 색상 입력 동기화 헬퍼
   const syncColor = (pickerId: string, textId: string, colorType: 'body' | 'flower' | 'visor') => {
@@ -83,14 +87,16 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
     picker.addEventListener('input', (e) => {
       const val = (e.target as HTMLInputElement).value;
       text.value = val;
-      preview?.updateColor(colorType, val);
+      const fType = (document.getElementById('f-type') as HTMLSelectElement).value;
+      preview?.updateColor(colorType, val, colorType === 'flower' ? fType : undefined);
     });
 
     text.addEventListener('input', (e) => {
       const val = (e.target as HTMLInputElement).value;
       if (/^#[0-9a-fA-F]{6}$/.test(val)) {
         picker.value = val;
-        preview?.updateColor(colorType, val);
+        const fType = (document.getElementById('f-type') as HTMLSelectElement).value;
+        preview?.updateColor(colorType, val, colorType === 'flower' ? fType : undefined);
       }
     });
   };
@@ -98,6 +104,12 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
   syncColor('f-body', 'f-body-text', 'body');
   syncColor('f-flower', 'f-flower-text', 'flower');
   syncColor('f-visor', 'f-visor-text', 'visor');
+
+  document.getElementById('f-type')!.addEventListener('change', (e) => {
+    const type = (e.target as HTMLSelectElement).value;
+    const color = (document.getElementById('f-flower') as HTMLInputElement).value;
+    preview?.updateColor('flower', color, type);
+  });
 
   // 저장
   document.getElementById('save-btn')!.addEventListener('click', async () => {

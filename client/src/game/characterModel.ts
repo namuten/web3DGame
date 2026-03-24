@@ -3,7 +3,7 @@ import * as THREE from 'three';
 /**
  * 2톤 알약 캐릭터를 생성 (하단 흰색 고정, 상단 색상 가변)
  */
-export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = bodyColor) => {
+export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = bodyColor, flowerType: string = 'daisy') => {
   const root = new THREE.Group();
   
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.1, metalness: 0 });
@@ -42,7 +42,7 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
   upperBody.add(visor);
 
   // 꽃 생성 및 추가
-  const flower = createFlowerModel(flowerColor);
+  let flower = createFlowerModel(flowerColor, flowerType);
   flower.position.y = 0.6; // 머리 꼭대기 상대 좌표
   upperBody.add(flower);
 
@@ -75,6 +75,14 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
   // 꽃 색상 변경
   (root as any).setFlowerColor = (newColor: number) => {
     if ((flower as any).setPetalColor) (flower as any).setPetalColor(newColor);
+  };
+
+  // 꽃 종류 및 색상을 한 번에 변경 (geometry 재생성)
+  (root as any).setFlowerStyle = (newType: string, newColor: number) => {
+    upperBody.remove(flower);
+    flower = createFlowerModel(newColor, newType);
+    flower.position.y = 0.6;
+    upperBody.add(flower);
   };
 
   // 상체 회전 (허리 위만 회전 - 좌우 Yaw, 상하 Pitch)
@@ -113,7 +121,7 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
 /**
  * 데이지 꽃 모델 생성 (독립형)
  */
-function createFlowerModel(flowerColor: number) {
+function createFlowerModel(flowerColor: number, flowerType: string = 'daisy') {
   const flowerGroup = new THREE.Group();
   const stemSegments: THREE.Mesh[] = [];
 
@@ -141,22 +149,83 @@ function createFlowerModel(flowerColor: number) {
   flowerGroup.add(flowerHead);
 
   const center = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({ color: 0xffcc00 }));
-  center.scale.set(1, 0.6, 1);
-  flowerHead.add(center);
-
-  const petalGeo = new THREE.SphereGeometry(0.03, 8, 8);
-  petalGeo.scale(1.5, 0.2, 5);
-  
   const createPetalMat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0 });
   const initialPetalMat = createPetalMat(flowerColor);
 
-  for (let i = 0; i < 18; i++) {
-    const petal = new THREE.Mesh(petalGeo, initialPetalMat);
-    const angle = (i / 18) * Math.PI * 2;
-    petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
-    petal.rotation.y = -angle;
-    petal.rotation.z = 0.1;
-    flowerHead.add(petal);
+  let petalMeshes: THREE.Mesh[] = [];
+
+  if (flowerType === 'rose') {
+    center.material = new THREE.MeshStandardMaterial({ color: 0x880000 });
+    center.scale.set(0.6, 0.4, 0.6);
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
+    petalGeo.scale(1, 1.5, 0.2);
+    for (let i = 0; i < 18; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 18) * Math.PI * 2 * 2; // spiral
+      const radius = 0.03 + (i * 0.003);
+      petal.position.set(Math.cos(angle) * radius, i * 0.004, Math.sin(angle) * radius);
+      petal.rotation.y = -angle + Math.PI/2;
+      petal.rotation.x = -0.1 - (i * 0.02);
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
+  } else if (flowerType === 'tulip') {
+    center.visible = false; // 튤립은 수술을 가림
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
+    petalGeo.scale(0.8, 2.0, 0.2);
+    for (let i = 0; i < 6; i++) {
+        const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+        const angle = (i / 6) * Math.PI * 2;
+        petal.position.set(Math.cos(angle) * 0.04, 0.08, Math.sin(angle) * 0.04);
+        petal.rotation.y = -angle + Math.PI/2;
+        petal.rotation.x = 0.15;
+        flowerHead.add(petal);
+        petalMeshes.push(petal);
+    }
+  } else if (flowerType === 'sunflower') {
+    center.geometry = new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16) as any;
+    center.material = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
+    center.rotation.x = Math.PI/2;
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.02, 8, 8);
+    petalGeo.scale(1.5, 0.2, 3);
+    for (let i = 0; i < 24; i++) {
+        const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+        const angle = (i / 24) * Math.PI * 2;
+        petal.position.set(Math.cos(angle) * 0.16, 0, Math.sin(angle) * 0.16);
+        petal.rotation.y = -angle;
+        flowerHead.add(petal);
+        petalMeshes.push(petal);
+    }
+  } else if (flowerType === 'clover') {
+    center.visible = false;
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    petalGeo.scale(1, 0.2, 1);
+    for (let i = 0; i < 4; i++) {
+        const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+        const angle = (i / 4) * Math.PI * 2;
+        petal.position.set(Math.cos(angle) * 0.08, 0, Math.sin(angle) * 0.08);
+        flowerHead.add(petal);
+        petalMeshes.push(petal);
+    }
+  } else {
+    // Daisy (기본)
+    center.scale.set(1, 0.6, 1);
+    flowerHead.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.03, 8, 8);
+    petalGeo.scale(1.5, 0.2, 5);
+    for (let i = 0; i < 18; i++) {
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 18) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+      petal.rotation.y = -angle;
+      petal.rotation.z = 0.1;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
+    }
   }
 
   // 물리 기반 꽃 움직임 (forward: 앞뒤 기울기, side: 좌우 기울기)
@@ -181,11 +250,7 @@ function createFlowerModel(flowerColor: number) {
 
   (flowerGroup as any).setPetalColor = (newColor: number) => {
     const newMat = createPetalMat(newColor);
-    flowerHead.children.forEach(c => {
-      if (c instanceof THREE.Mesh && c !== center) {
-        c.material = newMat;
-      }
-    });
+    petalMeshes.forEach(p => p.material = newMat);
   };
 
   return flowerGroup;

@@ -6,6 +6,12 @@ export const worldCollidables: THREE.Object3D[] = [];
 export let currentMapConfig: MapConfig | null = null;
 let waterObj: THREE.Mesh | null = null;
 
+// 하늘 요소 관리
+const clouds: THREE.Group[] = [];
+const birds: THREE.Group[] = [];
+let celestialObj: THREE.Object3D | null = null; // 해 또는 달
+let skyGroup: THREE.Group | null = null;
+
 /** 
  * 지면 높이 계산 함수 (노이즈 기반)
  */
@@ -25,8 +31,41 @@ export const getGroundHeight = (x: number, z: number): number => {
 };
 
 export const updateWorld = (time: number) => {
+  // 1. 물 요동 애니메이션
   if (waterObj) {
     waterObj.position.y = -60 + Math.sin(time * 0.8) * 2;
+  }
+
+  // 2. 구름 이동 애니메이션
+  clouds.forEach((cloud, i) => {
+    cloud.position.x += 0.05 + (i * 0.01);
+    cloud.position.y += Math.sin(time + i) * 0.01;
+    if (cloud.position.x > 500) cloud.position.x = -500;
+  });
+
+  // 3. 새/드론 비행 및 날개짓 애니메이션
+  birds.forEach((bird, i) => {
+    const radius = 100 + i * 20;
+    const speed = 0.5 + i * 0.1;
+    bird.position.x = Math.cos(time * 0.2 * speed + i) * radius;
+    bird.position.z = Math.sin(time * 0.2 * speed + i) * radius;
+    bird.position.y = 40 + Math.sin(time * 0.5 + i) * 5;
+    bird.lookAt(
+        Math.cos((time + 0.1) * 0.2 * speed + i) * radius,
+        40 + Math.sin((time + 0.1) * 0.5 + i) * 5,
+        Math.sin((time + 0.1) * 0.2 * speed + i) * radius
+    );
+
+    // 날개짓 애니메이션 (자식 메시 회전)
+    bird.children.forEach((wing, j) => {
+        if (j === 0) wing.rotation.z = Math.sin(time * 10) * 0.5; // 왼쪽 날개
+        if (j === 1) wing.rotation.z = -Math.sin(time * 10) * 0.5; // 오른쪽 날개
+    });
+  });
+
+  // 4. 천체(해/달) 미세 움직임
+  if (celestialObj) {
+    celestialObj.rotation.y += 0.005;
   }
 };
 
@@ -37,14 +76,22 @@ export const initWorld = (config: MapConfig) => {
   worldCollidables.forEach(obj => scene.remove(obj));
   scene.children.filter(c => c.userData.isWorldObj).forEach(obj => scene.remove(obj));
   worldCollidables.length = 0;
+  
+  // 하늘 요소 초기화
+  clouds.length = 0;
+  birds.length = 0;
+  if (skyGroup) scene.remove(skyGroup);
+  skyGroup = new THREE.Group();
+  scene.add(skyGroup);
 
   const bgColor = new THREE.Color(config.bgColor);
   scene.background = bgColor;
   scene.fog = new THREE.FogExp2(bgColor.getHex(), config.fogDensity);
 
-  // 조명 (기존 조명 제거)
+  // 조명이 중복되지 않도록 정리 (기존 조명 제거)
   scene.children.filter(c => c instanceof THREE.Light).forEach(l => scene.remove(l));
 
+  // 환경광 & 태양광 설정
   const hemiLight = new THREE.HemisphereLight(0xFFFFFF, 0x4444ff, 1.2);
   scene.add(hemiLight);
 
@@ -58,6 +105,9 @@ export const initWorld = (config: MapConfig) => {
   dirLight.shadow.camera.bottom = -250;
   dirLight.shadow.bias = -0.0005;
   scene.add(dirLight);
+
+  // 하늘 고도화 (구름, 해/달, 새 등)
+  initSky(config);
 
   // 1. 잔디 & 흙 텍스처 (절차적)
   const createGrassTexture = () => {
@@ -151,7 +201,109 @@ export const initWorld = (config: MapConfig) => {
   waterObj = water;
   scene.add(water);
 
-  // 4. 장애물 생성
+  // 4. 테마별 장애물 생성 헬퍼
+  const createThemeObstacle = (theme: string, color: number, seededRandom: () => number) => {
+    const group = new THREE.Group();
+    
+    if (theme === 'pastel') {
+      // 파스텔 정원: 나무 (원기둥 + 원뿔/구체)
+      const trunkH = 2 + seededRandom() * 2;
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.7, trunkH),
+        new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 1 })
+      );
+      trunk.position.y = trunkH / 2;
+      group.add(trunk);
+
+      const leafMode = seededRandom();
+      const leafColor = new THREE.Color(color).clone().lerp(new THREE.Color(0xffffff), 0.2).getHex();
+      const leaves = new THREE.Mesh(
+        leafMode > 0.5 ? new THREE.SphereGeometry(2 + seededRandom() * 2, 8, 8) : new THREE.ConeGeometry(3, 6, 8),
+        new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.8 })
+      );
+      leaves.position.y = trunkH + (leafMode > 0.5 ? 1 : 2);
+      group.add(leaves);
+
+    } else if (theme === 'candy') {
+      // 캔디 랜드: 막대 사탕 (얇은 기둥 + 큰 구체)
+      const stickH = 4 + seededRandom() * 4;
+      const stick = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2, 0.2, stickH),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+      );
+      stick.position.y = stickH / 2;
+      group.add(stick);
+
+      const candy = new THREE.Mesh(
+        new THREE.SphereGeometry(2, 16, 16),
+        new THREE.MeshStandardMaterial({ 
+          color, 
+          roughness: 0.1, 
+          metalness: 0.4,
+          emissive: color,
+          emissiveIntensity: 0.2
+        })
+      );
+      candy.position.y = stickH;
+      group.add(candy);
+
+      // 도넛(토러스) 추가 (가끔)
+      if (seededRandom() > 0.7) {
+        const torus = new THREE.Mesh(
+          new THREE.TorusGeometry(1.5, 0.6, 8, 16),
+          new THREE.MeshStandardMaterial({ color: 0xff66aa, roughness: 0.2 })
+        );
+        torus.position.y = 1;
+        torus.rotation.x = Math.PI / 2;
+        group.add(torus);
+      }
+
+    } else if (theme === 'neon') {
+      // 네온 시티: 발광하는 기하학적 기둥
+      const h = 10 + seededRandom() * 25;
+      const w = 3 + seededRandom() * 3;
+      const d = 3 + seededRandom() * 3;
+      
+      const core = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, metalness: 0.8 })
+      );
+      core.position.y = h / 2;
+      group.add(core);
+
+      // 테두리 네온 라인
+      const edgeColor = color;
+      const lineGeo = new THREE.BoxGeometry(w + 0.1, h * 0.1, d + 0.1);
+      const lineMat = new THREE.MeshStandardMaterial({ 
+        color: edgeColor, 
+        emissive: edgeColor, 
+        emissiveIntensity: 2 
+      });
+      
+      const lineTop = new THREE.Mesh(lineGeo, lineMat);
+      lineTop.position.y = h * 0.9;
+      group.add(lineTop);
+
+      const lineMid = new THREE.Mesh(lineGeo, lineMat);
+      lineMid.position.y = h * 0.5;
+      group.add(lineMid);
+
+    } else {
+      // 기본: 박스
+      const h = seededRandom() * 12 + 3;
+      const w = seededRandom() * 4 + 2;
+      const d = seededRandom() * 4 + 2;
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.5 })
+      );
+      box.position.y = h / 2;
+      group.add(box);
+    }
+
+    return group;
+  };
+
   let seedVal = config.seed;
   const seededRandom = () => {
     seedVal = (seedVal * 1664525 + 1013904223) & 0xffffffff;
@@ -160,24 +312,169 @@ export const initWorld = (config: MapConfig) => {
 
   const colors = config.obstacleColors.map(c => new THREE.Color(c).getHex());
   for (let i = 0; i < config.obstacleCount; i++) {
-    const h = seededRandom() * 12 + 3;
-    const w = seededRandom() * 4 + 2;
-    const d = seededRandom() * 4 + 2;
     const color = colors[Math.floor(seededRandom() * colors.length)];
-
-    const box = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.5 })
-    );
+    const obstacle = createThemeObstacle(config.theme, color, seededRandom);
+    
     const limit = config.playZone;
     const rx = seededRandom() * limit * 2 - limit;
     const rz = seededRandom() * limit * 2 - limit;
     const groundY = getGroundHeight(rx, rz);
 
-    box.position.set(rx, groundY + h / 2, rz);
-    box.castShadow = box.receiveShadow = true;
-    box.userData.isWorldObj = true;
-    scene.add(box);
-    worldCollidables.push(box);
+    obstacle.position.set(rx, groundY, rz);
+    
+    obstacle.traverse(child => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = child.receiveShadow = true;
+      }
+    });
+
+    obstacle.userData.isWorldObj = true;
+    scene.add(obstacle);
+    
+    // 충돌 판정을 위해 Mesh들을 worldCollidables에 추가
+    obstacle.children.forEach(child => {
+      if (child instanceof THREE.Mesh) {
+        worldCollidables.push(child);
+      }
+    });
   }
+};
+
+/**
+ * 테마별 하늘 요소 초기화
+ */
+const initSky = (config: MapConfig) => {
+    if (!skyGroup) return;
+
+    // 1. 구름 생성
+    const cloudCount = 12;
+    const cloudColor = 0xffffff; // 모든 테마 구름 색상을 흰색으로 통일
+    const cloudOpacity = config.theme === 'neon' ? 0.4 : 0.8;
+
+    for (let i = 0; i < cloudCount; i++) {
+        const cloud = createCloud(cloudColor, cloudOpacity);
+        cloud.position.set(
+            (Math.random() - 0.5) * 600,
+            80 + Math.random() * 40,
+            (Math.random() - 0.5) * 600
+        );
+        skyGroup.add(cloud);
+        clouds.push(cloud);
+    }
+
+    // 2. 해 또는 달 생성
+    let celestial;
+    if (config.theme === 'neon') {
+        celestial = createMoon(0xddddff, 0x00ccff); // 네온 맵은 푸른 달
+    } else if (config.theme === 'candy') {
+        celestial = createSun(0xffcccc, 0xff66bb); // 캔디 맵은 분홍 해
+    } else if (config.theme === 'custom') {
+        celestial = createSun(0xff8822, 0xff4422); // 커스텀(노을)은 붉은 해
+    } else {
+        celestial = createSun(0xffffcc, 0xffcc00); // 파스텔은 기본 해
+    }
+    celestial.position.set(150, 250, 150);
+    skyGroup.add(celestial);
+    celestialObj = celestial;
+
+    // 3. 새 또는 드론 생성
+    const birdCount = 3;
+    for (let i = 0; i < birdCount; i++) {
+        const bird = createBird(config.theme);
+        skyGroup.add(bird);
+        birds.push(bird);
+    }
+};
+
+/** 구름 생성기 */
+const createCloud = (color: number, opacity: number) => {
+    const group = new THREE.Group();
+    const count = 3 + Math.floor(Math.random() * 3);
+    const material = new THREE.MeshStandardMaterial({ 
+        color, 
+        transparent: true, 
+        opacity,
+        roughness: 1,
+        emissive: color,
+        emissiveIntensity: opacity > 0.5 ? 0 : 0.5
+    });
+
+    for (let i = 0; i < count; i++) {
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(4 + Math.random() * 3, 7, 7),
+            material
+        );
+        sphere.position.set(i * 3, Math.sin(i) * 2, Math.cos(i) * 2);
+        group.add(sphere);
+    }
+    return group;
+};
+
+/** 해 생성기 */
+const createSun = (innerColor: number, outerColor: number) => {
+    const group = new THREE.Group();
+    const sun = new THREE.Mesh(
+        new THREE.SphereGeometry(15, 16, 16),
+        new THREE.MeshBasicMaterial({ color: innerColor })
+    );
+    group.add(sun);
+
+    const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(18, 16, 16),
+        new THREE.MeshBasicMaterial({ color: outerColor, transparent: true, opacity: 0.3 })
+    );
+    group.add(glow);
+    return group;
+};
+
+/** 달 생성기 */
+const createMoon = (color: number, ringColor: number) => {
+    const group = new THREE.Group();
+    const moon = new THREE.Mesh(
+        new THREE.SphereGeometry(10, 16, 16),
+        new THREE.MeshBasicMaterial({ color: color })
+    );
+    group.add(moon);
+
+    const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(14, 0.5, 8, 32),
+        new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.5 })
+    );
+    ring.rotation.x = Math.PI / 3;
+    group.add(ring);
+    return group;
+};
+
+/** 새/드론 생성기 */
+const createBird = (theme: string) => {
+    const group = new THREE.Group();
+    const isNeon = theme === 'neon';
+    
+    // 몸체
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(isNeon ? 1.5 : 1, 0.3, isNeon ? 1.5 : 1.5),
+        new THREE.MeshStandardMaterial({ 
+            color: isNeon ? 0x333333 : 0x222222, 
+            emissive: isNeon ? 0x00ffff : 0x000000 
+        })
+    );
+    group.add(body);
+
+    // 날개 (V자형)
+    const wingGeo = new THREE.PlaneGeometry(isNeon ? 1.5 : 2, 0.8);
+    const wingMat = new THREE.MeshStandardMaterial({ 
+        color: isNeon ? 0xff00ff : 0x444444, 
+        side: THREE.DoubleSide,
+        emissive: isNeon ? 0xff00ff : 0x000000
+    });
+
+    const leftWing = new THREE.Mesh(wingGeo, wingMat);
+    leftWing.position.x = isNeon ? -0.7 : -1;
+    group.add(leftWing);
+
+    const rightWing = new THREE.Mesh(wingGeo, wingMat);
+    rightWing.position.x = isNeon ? 0.7 : 1;
+    group.add(rightWing);
+
+    return group;
 };

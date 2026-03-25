@@ -27,7 +27,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (!description || typeof description !== 'string' || description.trim() === '') {
       return res.status(400).json({ error: 'description is required' });
     }
-    if (description.trim().length > 200) {
+    if ([...description.trim()].length > 200) {
       return res.status(400).json({ error: 'description must be 200 characters or less' });
     }
     const created = await MonsterTerm.create({ term: term.trim(), description: description.trim() });
@@ -42,7 +42,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const { term, description } = req.body;
-    const patch: Partial<Pick<any, 'term' | 'description'>> = {};
+    const patch: { term?: string; description?: string } = {};
     if (term !== undefined) {
       if (typeof term !== 'string' || term.trim() === '') {
         return res.status(400).json({ error: 'term must be a non-empty string' });
@@ -56,7 +56,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       if (typeof description !== 'string' || description.trim() === '') {
         return res.status(400).json({ error: 'description must be a non-empty string' });
       }
-      if (description.trim().length > 200) {
+      if ([...description.trim()].length > 200) {
         return res.status(400).json({ error: 'description must be 200 characters or less' });
       }
       patch.description = description.trim();

@@ -72,11 +72,7 @@ class MonsterManager {
 
     private previousMonsterPos = new THREE.Vector3();
     private previousWorldVel = new THREE.Vector3();
-    private innerCharMesh: THREE.Group | null = null;
-    private innerCharPos = new THREE.Vector3();
-    private innerCharVel = new THREE.Vector3();
-    private innerCharRot = new THREE.Euler();
-    private innerCharRotVel = new THREE.Vector3();
+    private innerChars: { mesh: THREE.Group, pos: THREE.Vector3, vel: THREE.Vector3, rot: THREE.Euler, rotVel: THREE.Vector3 }[] = [];
 
     spawn(data: MonsterData) {
         console.log(`[MonsterClientLog] Spawn Request Received:`, data);
@@ -112,17 +108,25 @@ class MonsterManager {
         rightEye.position.set(-4, 3, 5);
         group.add(rightEye);
 
-        // 3. 내부 글자 메쉬 (3D 판넬)
-        this.innerCharMesh = createKoreanLetterMesh();
-        group.add(this.innerCharMesh);
-        this.innerCharPos.set(0, 0, 0);
-        this.innerCharVel.set(0, 0, 0);
-        this.innerCharRot.set(0, 0, 0);
-        this.innerCharRotVel.set(
-            (Math.random() - 0.5) * 5, 
-            (Math.random() - 0.5) * 5, 
-            (Math.random() - 0.5) * 5
-        );
+        // 3. 내부 글자 메쉬 2개 추가
+        this.innerChars = [];
+        for (let i = 0; i < 2; i++) {
+            const mesh = createKoreanLetterMesh();
+            // 약간 작게 조절 (둘이 너무 꽉 차지 않게)
+            mesh.scale.set(0.8, 0.8, 0.8);
+            group.add(mesh);
+            this.innerChars.push({
+                mesh,
+                pos: new THREE.Vector3((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4),
+                vel: new THREE.Vector3(),
+                rot: new THREE.Euler(),
+                rotVel: new THREE.Vector3(
+                    (Math.random() - 0.5) * 10, 
+                    (Math.random() - 0.5) * 10, 
+                    (Math.random() - 0.5) * 10
+                )
+            });
+        }
 
         // 초기 위치 강제 설정 (공중에 떠서 보이기 시작하게)
         group.position.set(data.position.x, 20, data.position.z);
@@ -188,49 +192,74 @@ class MonsterManager {
         this.monsterMesh.scale.set(scaleXZ, scaleY, scaleXZ);
 
         // 내부 한글 물리 엔진 보정
-        if (this.innerCharMesh && deltaTime > 0.001) {
+        if (this.innerChars.length > 0 && deltaTime > 0.001) {
             const worldVel = new THREE.Vector3().subVectors(currentRealPos, this.previousMonsterPos).divideScalar(deltaTime);
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
-            // F = m*a (가속도의 반대 방향으로 관성력이 작용)
-            // 반응성을 높이기 위해 관성 계수를 약간 올림
             worldAccel.clampLength(0, 1000);
             const inertiaForce = worldAccel.multiplyScalar(-1.5);
             
-            // 스프링 힘 (다시 중앙으로 돌아오려는 성질)
-            // 힘을 낮춰서 바깥으로 더 멀리 나갈 수 있게 함
-            const springForce = this.innerCharPos.clone().multiplyScalar(-60);
-            
-            // 댐핑 반작용 (꿀렁임이 더 오래 지속되도록 저항을 낮춤)
-            const dampingForce = this.innerCharVel.clone().multiplyScalar(-3);
-            
-            const totalForce = new THREE.Vector3().add(inertiaForce).add(springForce).add(dampingForce);
-            
-            this.innerCharVel.add(totalForce.multiplyScalar(deltaTime));
-            this.innerCharPos.add(this.innerCharVel.clone().multiplyScalar(deltaTime));
-            
-            // 공 밖으로 너무 튀어나가지 않게 (반경 6.5 로 여유범위 확대, 슬라임 크기는 8)
-            if (this.innerCharPos.length() > 6.5) {
-                this.innerCharPos.setLength(6.5);
+            for (const char of this.innerChars) {
+                // 스프링 힘 (다시 중앙으로 돌아오려는 성질)
+                const springForce = char.pos.clone().multiplyScalar(-60);
+                
+                // 댐핑 반작용
+                const dampingForce = char.vel.clone().multiplyScalar(-3);
+                
+                const totalForce = new THREE.Vector3().add(inertiaForce).add(springForce).add(dampingForce);
+                
+                char.vel.add(totalForce.multiplyScalar(deltaTime));
+                char.pos.add(char.vel.clone().multiplyScalar(deltaTime));
+                
+                // 공 밖으로 너무 튀어나가지 않게 (반경 6.5)
+                if (char.pos.length() > 6.5) {
+                    char.pos.setLength(6.5);
+                    char.vel.multiplyScalar(-0.5); // 벽에 부딪히면 튕김
+                }
             }
             
-            this.innerCharMesh.position.copy(this.innerCharPos);
-            
-            // 회전 물리 연산: 극단적으로 회전을 많이, 어지럽게 하도록 강력한 랜덤 토크와 속도 반영
-            const randomTorque = new THREE.Vector3(
-                (Math.random() - 0.5) * 80,
-                (Math.random() - 0.5) * 80,
-                (Math.random() - 0.5) * 80
-            ).multiplyScalar(deltaTime);
+            // 두 글자 간의 충돌 연산 (Elastic Collision)
+            const c1 = this.innerChars[0];
+            const c2 = this.innerChars[1];
+            const collisionRadius = 3.5; 
+            const diff = new THREE.Vector3().subVectors(c1.pos, c2.pos);
+            const dist = diff.length();
+            if (dist > 0 && dist < collisionRadius * 2) {
+                // 겹친 만큼 밀어내기
+                const overlap = collisionRadius * 2 - dist;
+                const push = diff.clone().normalize().multiplyScalar(overlap * 0.5);
+                c1.pos.add(push);
+                c2.pos.sub(push);
+                
+                // 속도 교환 (탄성 충돌 효과 및 감쇠)
+                const tempVel = c1.vel.clone();
+                c1.vel.copy(c2.vel).multiplyScalar(0.8);
+                c2.vel.copy(tempVel).multiplyScalar(0.8);
+                
+                // 강하게 부딪히면 추가 스핀 발생
+                c1.rotVel.add(new THREE.Vector3((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50));
+                c2.rotVel.add(new THREE.Vector3((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50));
+            }
 
-            this.innerCharRotVel.add(this.innerCharVel.clone().multiplyScalar(deltaTime * 10.0));
-            this.innerCharRotVel.add(randomTorque);
-            this.innerCharRotVel.multiplyScalar(0.99); // 거의 멈추지 않고 계속 빙글빙글 돌도록 댐핑 최소화
-            
-            this.innerCharRot.x += this.innerCharRotVel.x * deltaTime;
-            this.innerCharRot.y += this.innerCharRotVel.y * deltaTime;
-            this.innerCharRot.z += this.innerCharRotVel.z * deltaTime;
-            this.innerCharMesh.rotation.copy(this.innerCharRot);
+            for (const char of this.innerChars) {
+                char.mesh.position.copy(char.pos);
+                
+                // 회전 물리 연산
+                const randomTorque = new THREE.Vector3(
+                    (Math.random() - 0.5) * 80,
+                    (Math.random() - 0.5) * 80,
+                    (Math.random() - 0.5) * 80
+                ).multiplyScalar(deltaTime);
+
+                char.rotVel.add(char.vel.clone().multiplyScalar(deltaTime * 10.0));
+                char.rotVel.add(randomTorque);
+                char.rotVel.multiplyScalar(0.99);
+                
+                char.rot.x += char.rotVel.x * deltaTime;
+                char.rot.y += char.rotVel.y * deltaTime;
+                char.rot.z += char.rotVel.z * deltaTime;
+                char.mesh.rotation.copy(char.rot);
+            }
             
             this.previousWorldVel.copy(worldVel);
         }

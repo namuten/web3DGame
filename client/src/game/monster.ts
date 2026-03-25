@@ -7,6 +7,39 @@ export interface MonsterData {
     position: { x: number; y: number; z: number };
 }
 
+function createKoreanLetterSprite() {
+    const chars = ["가","나","다","라","마","바","사","아","자","차","카","타","파","하","왕","슬","라","임","똥","별","달","돈","힘"];
+    const text = chars[Math.floor(Math.random() * chars.length)];
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0)';
+    ctx.fillRect(0, 0, 128, 128);
+    
+    ctx.font = 'bold 80px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Draw outline
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#222222';
+    ctx.strokeText(text, 64, 64);
+    
+    // Draw text
+    ctx.fillStyle = '#FFD700'; // Gold
+    ctx.fillText(text, 64, 64);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(7, 7, 1);
+    return sprite;
+}
+
 class MonsterManager {
     public monsterMesh: THREE.Group | null = null;
     private targetPos = new THREE.Vector3();
@@ -15,6 +48,12 @@ class MonsterManager {
     private flashTimer = 0;
     private targetScale = 1.0;
     private currentScale = 1.0;
+
+    private previousMonsterPos = new THREE.Vector3();
+    private previousWorldVel = new THREE.Vector3();
+    private innerCharMesh: THREE.Sprite | null = null;
+    private innerCharPos = new THREE.Vector3();
+    private innerCharVel = new THREE.Vector3();
 
     spawn(data: MonsterData) {
         console.log(`[MonsterClientLog] Spawn Request Received:`, data);
@@ -31,7 +70,8 @@ class MonsterManager {
             roughness: 0.1,
             metalness: 0.2,
             emissive: 0x00ff77,
-            emissiveIntensity: 0.5
+            emissiveIntensity: 0.5,
+            depthWrite: false
         });
         const body = new THREE.Mesh(bodyGeo, this.bodyMat);
         body.castShadow = true;
@@ -49,6 +89,12 @@ class MonsterManager {
         rightEye.position.set(-4, 3, 5);
         group.add(rightEye);
 
+        // 3. 내부 글자 스프라이트
+        this.innerCharMesh = createKoreanLetterSprite();
+        group.add(this.innerCharMesh);
+        this.innerCharPos.set(0, 0, 0);
+        this.innerCharVel.set(0, 0, 0);
+
         // 초기 위치 강제 설정 (공중에 떠서 보이기 시작하게)
         group.position.set(data.position.x, 20, data.position.z);
         group.userData = { isMonster: true, monsterId: data.id };
@@ -59,6 +105,9 @@ class MonsterManager {
         this.targetPos.copy(group.position);
         this.targetScale = 1.0;
         this.currentScale = 1.0;
+
+        this.previousMonsterPos.copy(group.position);
+        this.previousWorldVel.set(0,0,0);
 
         const gy = getGroundHeight(data.position.x, data.position.z);
         console.log(`[MonsterClientLog] Spawned in Scene at:`, group.position, `GroundY:`, gy);
@@ -94,7 +143,7 @@ class MonsterManager {
         // 2. 부드러운 위치 보간 (LERP)
         this.currentPos.lerp(this.targetPos, 0.1);
         
-        // 지형 높이에 맞게 Y축 조정 (서버에서 Y=5 기본값이나, 클라에서 보정 가능)
+        // 지형 높이에 맞게 Y축 조정
         const groundY = getGroundHeight(this.currentPos.x, this.currentPos.z);
         
         // 부드러운 스케일 보간 (LERP)
@@ -105,10 +154,42 @@ class MonsterManager {
         const scaleY = (1.0 - Math.abs(Math.sin(time * 3)) * 0.2) * this.currentScale;
         const scaleXZ = (1.0 + Math.abs(Math.sin(time * 3)) * 0.1) * this.currentScale;
         
-        this.monsterMesh.position.set(this.currentPos.x, groundY + 8 * this.currentScale + bounce, this.currentPos.z);
+        const currentRealPos = new THREE.Vector3(this.currentPos.x, groundY + 8 * this.currentScale + bounce, this.currentPos.z);
+        this.monsterMesh.position.copy(currentRealPos);
         this.monsterMesh.scale.set(scaleXZ, scaleY, scaleXZ);
+
+        // 내부 한글 물리 엔진 보정
+        if (this.innerCharMesh && deltaTime > 0.001) {
+            const worldVel = new THREE.Vector3().subVectors(currentRealPos, this.previousMonsterPos).divideScalar(deltaTime);
+            const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
+            
+            // F = m*a (가속도의 반대 방향으로 관성력이 작용)
+            // 약간의 가속 제한을 두어 폭발을 막음
+            worldAccel.clampLength(0, 1000);
+            const inertiaForce = worldAccel.multiplyScalar(-0.8);
+            
+            // 스프링 힘 (다시 중앙으로 돌아오려는 성질)
+            const springForce = this.innerCharPos.clone().multiplyScalar(-100);
+            
+            // 댐핑 반작용 (꿀렁임이 안정되도록)
+            const dampingForce = this.innerCharVel.clone().multiplyScalar(-10);
+            
+            const totalForce = new THREE.Vector3().add(inertiaForce).add(springForce).add(dampingForce);
+            
+            this.innerCharVel.add(totalForce.multiplyScalar(deltaTime));
+            this.innerCharPos.add(this.innerCharVel.clone().multiplyScalar(deltaTime));
+            
+            // 공 밖으로 튀어나가지 않게 (반경 5 로 제한)
+            if (this.innerCharPos.length() > 5) {
+                this.innerCharPos.setLength(5);
+            }
+            
+            this.innerCharMesh.position.copy(this.innerCharPos);
+            
+            this.previousWorldVel.copy(worldVel);
+        }
         
-        // 플레이어 방향으로 살짝 회전 (나중에 리팩터링 가능)
+        this.previousMonsterPos.copy(currentRealPos);
     }
 
     remove() {

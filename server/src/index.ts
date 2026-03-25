@@ -142,30 +142,35 @@ io.on('connection', (socket: Socket) => {
     if (!monsters[mapIdStr] && !spawnTimers[mapIdStr]) {
       socket.emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime spawn timer started (5s)...` });
       spawnTimers[mapIdStr] = setTimeout(async () => {
-        const config = mapConfig;
-        const limit = config.playZone || 80;
-        const termRecord = await MonsterTermModel.findRandom();
-        const monster = {
-          id: 'boss_slime',
-          mapId: mapIdStr,
-          position: {
-            x: (Math.random() - 0.5) * limit * 0.8,
-            y: 5,
-            z: (Math.random() - 0.5) * limit * 0.8
-          },
-          targetId: null,
-          speed: 0.45,
-          alive: true,
-          hp: 300,
-          maxHp: 300,
-          scale: 1.0,
-          term: termRecord?.term ?? undefined,
-          termDesc: termRecord?.description ?? undefined,
-        };
-        monsters[mapIdStr] = monster;
-        io.to(mapIdStr).emit('MONSTER_SPAWN', monster);
-        io.to(mapIdStr).emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime Spawned at X:${monster.position.x.toFixed(1)}, Z:${monster.position.z.toFixed(1)}` });
-        delete spawnTimers[mapIdStr];
+        try {
+          const config = mapConfig;
+          const limit = config.playZone || 80;
+          const termRecord = await MonsterTermModel.findRandom();
+          const monster = {
+            id: 'boss_slime',
+            mapId: mapIdStr,
+            position: {
+              x: (Math.random() - 0.5) * limit * 0.8,
+              y: 5,
+              z: (Math.random() - 0.5) * limit * 0.8
+            },
+            targetId: null,
+            speed: 0.45,
+            alive: true,
+            hp: 300,
+            maxHp: 300,
+            scale: 1.0,
+            term: termRecord?.term,
+            termDesc: termRecord?.description,
+          };
+          monsters[mapIdStr] = monster;
+          io.to(mapIdStr).emit('MONSTER_SPAWN', monster);
+          io.to(mapIdStr).emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime Spawned at X:${monster.position.x.toFixed(1)}, Z:${monster.position.z.toFixed(1)}` });
+        } catch (err) {
+          console.error('[SPAWN] Failed to spawn monster:', err);
+        } finally {
+          delete spawnTimers[mapIdStr];
+        }
       }, 5000);
     } else if (monsters[mapIdStr]) {
       socket.emit('MONSTER_SPAWN', monsters[mapIdStr]);

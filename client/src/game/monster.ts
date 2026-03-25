@@ -39,16 +39,26 @@ function createKoreanLetterMesh() {
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
     
-    // 3D 공간 안에서 자유롭게 회전하는 양면 판때기(Plane) 생성
+    // 알파 테스트를 이용해 투명도를 자르고 여러 장 겹쳐서 두께(Depth)를 구현 (Fake 3D Extrusion)
     const material = new THREE.MeshStandardMaterial({ 
         map: texture, 
         transparent: true, 
         side: THREE.DoubleSide,
-        alphaTest: 0.1 
+        alphaTest: 0.3 
     });
-    const geo = new THREE.PlaneGeometry(8, 8);
-    const mesh = new THREE.Mesh(geo, material);
-    return mesh;
+    const geo = new THREE.PlaneGeometry(7, 7);
+    const group = new THREE.Group();
+    
+    // 20장을 겹쳐서 입체적인 두께 생성
+    const layers = 20;
+    const depth = 1.0; 
+    for (let i = 0; i < layers; i++) {
+        const mesh = new THREE.Mesh(geo, material);
+        mesh.position.z = (i - layers/2) * (depth / layers);
+        group.add(mesh);
+    }
+    
+    return group;
 }
 
 class MonsterManager {
@@ -62,7 +72,7 @@ class MonsterManager {
 
     private previousMonsterPos = new THREE.Vector3();
     private previousWorldVel = new THREE.Vector3();
-    private innerCharMesh: THREE.Mesh | null = null;
+    private innerCharMesh: THREE.Group | null = null;
     private innerCharPos = new THREE.Vector3();
     private innerCharVel = new THREE.Vector3();
     private innerCharRot = new THREE.Euler();
@@ -206,9 +216,16 @@ class MonsterManager {
             
             this.innerCharMesh.position.copy(this.innerCharPos);
             
-            // 회전 물리 연산 (통통 튈 때마다 글씨가 3D 공간에서 데굴데굴 구르게 함)
-            this.innerCharRotVel.add(this.innerCharVel.clone().multiplyScalar(deltaTime * 3));
-            this.innerCharRotVel.multiplyScalar(0.95); // 회전 댐핑
+            // 회전 물리 연산: 랜덤 방향의 난류(토크) 지속 추가 + 이동 속도 기반 회전
+            const randomTorque = new THREE.Vector3(
+                (Math.random() - 0.5) * 20,
+                (Math.random() - 0.5) * 20,
+                (Math.random() - 0.5) * 20
+            ).multiplyScalar(deltaTime);
+
+            this.innerCharRotVel.add(this.innerCharVel.clone().multiplyScalar(deltaTime * 1.5));
+            this.innerCharRotVel.add(randomTorque);
+            this.innerCharRotVel.multiplyScalar(0.97); // 회전 지속성을 높이기 위해 댐핑 최소화
             
             this.innerCharRot.x += this.innerCharRotVel.x * deltaTime;
             this.innerCharRot.y += this.innerCharRotVel.y * deltaTime;

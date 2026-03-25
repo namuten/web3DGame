@@ -13,6 +13,8 @@ import type { CharacterSelection } from '../ui/characterSelect';
 import type { MapConfig } from '../types/map';
 import type { MonsterData } from '../game/monster';
 import { monsterManager } from '../game/monster';
+import { addPartyMember, updatePartyMemberHP, removePartyMember } from '../ui/partyUI';
+import { renderSnapshot } from '../ui/characterSelect';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://namuten.duckdns.org:3000';
@@ -26,9 +28,11 @@ socket.on('connect', () => {
 });
 
 let localPlayerName = '나';
+let localSelection: CharacterSelection | null = null;
 
 export const connectWithCharacter = (selection: CharacterSelection) => {
   localPlayerName = selection.playerName;
+  localSelection = selection;
   socket.auth = {
     playerName: selection.playerName,
     characterId: selection.characterId,
@@ -53,7 +57,8 @@ socket.on('current_players', (players: Record<string, any>) => {
         players[id].visorColor,
         players[id].name,
         players[id].flowerType,
-        players[id].visorType
+        players[id].visorType,
+        players[id].hp
       );
     } else {
       console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
@@ -67,6 +72,16 @@ socket.on('current_players', (players: Record<string, any>) => {
       if (players[id].hp !== undefined) {
         import('../game/player').then(m => m.applyDamage(players[id].hp));
       }
+      const myInfo = localSelection || players[id];
+      renderSnapshot({
+        bodyColor: myInfo.bodyColor,
+        flowerColor: myInfo.flowerColor,
+        visorColor: myInfo.visorColor,
+        flowerType: myInfo.flowerType,
+        visorType: myInfo.visorType
+      }).then(imgUrl => {
+        addPartyMember('local', localPlayerName, players[id].hp ?? 100, imgUrl);
+      });
     }
   }
 });
@@ -81,7 +96,8 @@ socket.on('player_joined', (playerData: any) => {
     playerData.visorColor,
     playerData.name,
     playerData.flowerType,
-    playerData.visorType
+    playerData.visorType,
+    playerData.hp
   );
 });
 
@@ -131,6 +147,7 @@ socket.on('player_left', (id: string) => {
     scene.remove(otherPlayers[id]);
     delete otherPlayers[id];
     delete nameTags[id];
+    removePartyMember(id);
   }
 });
 
@@ -141,8 +158,10 @@ socket.on('PLAYER_DAMAGED', (data: { targetId: string, hp: number, shooterId: st
   if (data.targetId === socket.id) {
     // 내가 맞았을 때
     import('../game/player').then(m => m.applyDamage(data.hp, dir));
+    updatePartyMemberHP('local', data.hp);
   } else if (otherPlayers[data.targetId]) {
-    // 남이 맞았을 때 (깜빡임 효과 등 나중에 추가 가능)
+    // 남이 맞았을 때
+    updatePartyMemberHP(data.targetId, data.hp);
   }
 });
 
@@ -150,8 +169,10 @@ socket.on('PLAYER_DAMAGED', (data: { targetId: string, hp: number, shooterId: st
 socket.on('PLAYER_RESPAWN', (data: { id: string, hp: number, position: {x: number, y: number, z: number} }) => {
   if (data.id === socket.id) {
     import('../game/player').then(m => m.respawnPlayer(data.hp, data.position));
+    updatePartyMemberHP('local', data.hp);
   } else if (otherPlayers[data.id]) {
     otherPlayers[data.id].position.set(data.position.x, data.position.y, data.position.z);
+    updatePartyMemberHP(data.id, data.hp);
   }
 });
 
@@ -163,7 +184,8 @@ function addOtherPlayer(
   visorColor: string = '#333333',
   name: string = '익명',
   flowerType: string = 'daisy',
-  visorType: string = 'normal'
+  visorType: string = 'normal',
+  hp: number = 100
 ) {
   if (otherPlayers[id]) return;
 
@@ -192,6 +214,12 @@ function addOtherPlayer(
 
   scene.add(model);
   otherPlayers[id] = model;
+
+  renderSnapshot({
+    bodyColor, flowerColor, visorColor, flowerType, visorType
+  }).then(imgUrl => {
+    addPartyMember(id, name, hp, imgUrl);
+  });
 }
 
 // 초당 20회 강제 전송 (딜레이 최소화)

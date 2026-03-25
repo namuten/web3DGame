@@ -3,6 +3,7 @@ import { scene } from '../engine/scene';
 import { camera } from '../engine/camera';
 import { worldCollidables, currentMapConfig, getGroundHeight } from './world';
 import { otherPlayers } from '../network/players';
+import { updatePartyMemberHP } from '../ui/partyUI';
 
 import { createCharacterModel } from './characterModel';
 
@@ -72,6 +73,7 @@ let hp = 100;
   updateHPHUD();
 };
 let hpHUD: HTMLDivElement | null = null;
+
 const updateHPHUD = () => {
   if (hpHUD) {
     hpHUD.innerText = `HP: ${Math.max(0, Math.round(hp))}`;
@@ -80,6 +82,7 @@ const updateHPHUD = () => {
     else if (hp < 60) hpHUD.style.backgroundColor = '#ffd93d';
     else hpHUD.style.backgroundColor = '#6bcb77';
   }
+  updatePartyMemberHP('local', hp);
 };
 
 // ─── 넉백 물리 ───────────────────────────────────────────────

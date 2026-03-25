@@ -259,7 +259,7 @@ class MonsterManager {
                             (Math.random() - 0.5) * 5,
                             (Math.random() - 0.5) * 5,
                             (Math.random() - 0.5) * 5
-                        ));
+                        ).multiplyScalar(deltaTime));
                     }
                 }
 

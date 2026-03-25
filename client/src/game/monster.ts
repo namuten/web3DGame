@@ -108,16 +108,16 @@ class MonsterManager {
         rightEye.position.set(-4, 3, 5);
         group.add(rightEye);
 
-        // 3. 내부 글자 메쉬 2개 추가
+        // 3. 내부 글자 메쉬 4개 추가
         this.innerChars = [];
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < 4; i++) {
             const mesh = createKoreanLetterMesh();
-            // 약간 작게 조절 (둘이 너무 꽉 차지 않게)
-            mesh.scale.set(0.8, 0.8, 0.8);
+            // 약간 작게 조절 (4개가 들어가므로 더 작게)
+            mesh.scale.set(0.65, 0.65, 0.65);
             group.add(mesh);
             this.innerChars.push({
                 mesh,
-                pos: new THREE.Vector3((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4),
+                pos: new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6),
                 vel: new THREE.Vector3(),
                 rot: new THREE.Euler(),
                 rotVel: new THREE.Vector3(
@@ -198,13 +198,17 @@ class MonsterManager {
             
             worldAccel.clampLength(0, 1000);
             const inertiaForce = worldAccel.multiplyScalar(-1.2); // 관성력
-            const gravityForce = new THREE.Vector3(0, -120, 0); // 아래로 향하는 중력
+            const gravityForce = new THREE.Vector3(0, -60, 0); // 중력을 절반으로 줄임
+            const centeringForceMag = 40; // 중앙으로 살짝 띄워주는 힘 (부력 느낌)
             
             for (const char of this.innerChars) {
                 // 댐핑 (마찰 및 저항)
-                const dampingForce = char.vel.clone().multiplyScalar(-3.0);
+                const dampingForce = char.vel.clone().multiplyScalar(-2.5);
                 
-                const totalForce = new THREE.Vector3().add(inertiaForce).add(gravityForce).add(dampingForce);
+                // 아래로 너무 가라앉지 않게 중앙으로 향하는 미세한 힘 추가
+                const centeringForce = char.pos.clone().multiplyScalar(-centeringForceMag);
+                
+                const totalForce = new THREE.Vector3().add(inertiaForce).add(gravityForce).add(dampingForce).add(centeringForce);
                 
                 char.vel.add(totalForce.multiplyScalar(deltaTime));
                 char.pos.add(char.vel.clone().multiplyScalar(deltaTime));
@@ -233,32 +237,33 @@ class MonsterManager {
                 }
             }
             
-            // 두 글자 간의 충돌 연산 (Elastic Collision)
-            const c1 = this.innerChars[0];
-            const c2 = this.innerChars[1];
-            const collisionRadius = 3.5; 
-            const diff = new THREE.Vector3().subVectors(c1.pos, c2.pos);
-            const dist = diff.length();
-            if (dist > 0 && dist < collisionRadius * 2) {
-                // 겹친 만큼 밀어내기
-                const overlap = collisionRadius * 2 - dist;
-                const normal = diff.clone().normalize();
-                const push = normal.clone().multiplyScalar(overlap * 0.5);
-                c1.pos.add(push);
-                c2.pos.sub(push);
-                
-                // 상대 속도 기반 탄성 충돌
-                const relVel = new THREE.Vector3().subVectors(c1.vel, c2.vel);
-                const velAlongNormal = relVel.dot(normal);
-                if (velAlongNormal < 0) { // 서로 다가가는 중일 때
-                    const restitution = 0.6;
-                    const impulse = normal.clone().multiplyScalar(velAlongNormal * (1 + restitution) * 0.5);
-                    c1.vel.sub(impulse);
-                    c2.vel.add(impulse);
-                    
-                    // 강하게 부딪히면 회전 토크 발생
-                    c1.rotVel.add(new THREE.Vector3((Math.random()-0.5)*8, (Math.random()-0.5)*8, (Math.random()-0.5)*8));
-                    c2.rotVel.add(new THREE.Vector3((Math.random()-0.5)*8, (Math.random()-0.5)*8, (Math.random()-0.5)*8));
+            // 글자 간의 충돌 연산 (N^2 지만 4개면 충분히 빠름)
+            const collisionRadius = 2.8; 
+            for (let i = 0; i < this.innerChars.length; i++) {
+                for (let j = i + 1; j < this.innerChars.length; j++) {
+                    const c1 = this.innerChars[i]!;
+                    const c2 = this.innerChars[j]!;
+                    const diff = new THREE.Vector3().subVectors(c1.pos, c2.pos);
+                    const dist = diff.length();
+                    if (dist > 0 && dist < collisionRadius * 2) {
+                        const overlap = collisionRadius * 2 - dist;
+                        const normal = diff.clone().normalize();
+                        const push = normal.clone().multiplyScalar(overlap * 0.5);
+                        c1.pos.add(push);
+                        c2.pos.sub(push);
+                        
+                        const relVel = new THREE.Vector3().subVectors(c1.vel, c2.vel);
+                        const velAlongNormal = relVel.dot(normal);
+                        if (velAlongNormal < 0) {
+                            const restitution = 0.5;
+                            const impulse = normal.clone().multiplyScalar(velAlongNormal * (1 + restitution) * 0.5);
+                            c1.vel.sub(impulse);
+                            c2.vel.add(impulse);
+                            
+                            c1.rotVel.add(new THREE.Vector3((Math.random()-0.5)*15, (Math.random()-0.5)*15, (Math.random()-0.5)*15));
+                            c2.rotVel.add(new THREE.Vector3((Math.random()-0.5)*15, (Math.random()-0.5)*15, (Math.random()-0.5)*15));
+                        }
+                    }
                 }
             }
 

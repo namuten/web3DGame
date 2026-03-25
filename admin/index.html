@@ -81,6 +81,7 @@
       <div id="tab-bar">
         <button id="tab-characters" class="tab-btn active">캐릭터</button>
         <button id="tab-maps" class="tab-btn">맵</button>
+        <button id="tab-terms" class="tab-btn">용어</button>
       </div>
     </header>
 
@@ -107,6 +108,20 @@
         <div id="form-panel">
           <div id="map-form-container">
             <p style="color:#aaa;padding:20px;">좌측에서 맵을 선택하거나 새 맵을 추가하세요.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="terms-section" style="display:none;">
+      <div class="layout">
+        <div id="term-list-panel" style="width:280px;border-right:1px solid #ddd;background:#fff;display:flex;flex-direction:column;">
+          <button id="term-add-btn" style="margin:12px;padding:10px;background:#4dabf7;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:monospace;">+ 새 용어</button>
+          <div id="term-list"></div>
+        </div>
+        <div id="term-form-panel" style="flex:1;padding:20px;overflow-y:auto;background:#fafafa;">
+          <div id="term-form-container">
+            <p style="color:#aaa;padding:20px;">좌측에서 용어를 선택하거나 새 용어를 추가하세요.</p>
           </div>
         </div>
       </div>

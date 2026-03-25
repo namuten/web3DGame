@@ -4,18 +4,19 @@ import { getGroundHeight } from './world';
 
 export interface MonsterData {
     id: string;
+    mapId?: string;
     position: { x: number; y: number; z: number };
+    targetId?: string | null;
+    speed?: number;
+    alive?: boolean;
+    hp?: number;
+    maxHp?: number;
+    scale?: number;
+    term?: string;
+    termDesc?: string;
 }
 
-function createKoreanLetterMesh() {
-    const chars = [
-        "가","나","다","라","마","바","사","아","자","차","카","타","파","하",
-        "거","너","더","러","머","버","서","어","저","처","커","터","퍼","허",
-        "왕","슬","라","임","똥","별","달","돈","힘","꿈","빛","콩","팡","쾅",
-        "퓩","뽕","쓩","앗","잉","헉","얍","읏","멍","냥","꿀","빔","빵","뿅"
-    ];
-    const text = chars[Math.floor(Math.random() * chars.length)];
-    
+function createKoreanLetterMesh(char: string) {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
@@ -30,11 +31,11 @@ function createKoreanLetterMesh() {
     // Draw outline
     ctx.lineWidth = 10;
     ctx.strokeStyle = '#222222';
-    ctx.strokeText(text, 64, 64);
+    ctx.strokeText(char, 64, 64);
     
     // Draw text
     ctx.fillStyle = '#FFD700'; // Gold
-    ctx.fillText(text, 64, 64);
+    ctx.fillText(char, 64, 64);
     
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
@@ -120,11 +121,24 @@ class MonsterManager {
         rightEye.position.set(-4, 3, 5);
         group.add(rightEye);
 
-        // 3. 내부 글자 메쉬 4개 추가
+        // 3. 내부 글자 메쉬 - DB 용어 글자 수에 맞게 동적 생성
+        const FALLBACK_CHARS = [
+            "가","나","다","라","마","바","사","아","자","차","카","타","파","하",
+            "거","너","더","러","머","버","서","어","저","처","커","터","퍼","허",
+            "왕","슬","라","임","똥","별","달","돈","힘","꿈","빛","콩","팡","쾅"
+        ];
+        let termChars: string[];
+        if (data.term && data.term.length > 0) {
+            const spread = [...data.term].slice(0, 10);
+            termChars = spread;
+        } else {
+            termChars = Array.from({ length: 4 }, () =>
+                FALLBACK_CHARS[Math.floor(Math.random() * FALLBACK_CHARS.length)]
+            );
+        }
         this.innerChars = [];
-        for (let i = 0; i < 4; i++) {
-            const mesh = createKoreanLetterMesh();
-            // 약간 작게 조절 (4개가 들어가므로 더 작게)
+        for (const char of termChars) {
+            const mesh = createKoreanLetterMesh(char);
             mesh.scale.set(0.65, 0.65, 0.65);
             group.add(mesh);
             this.innerChars.push({
@@ -133,8 +147,8 @@ class MonsterManager {
                 vel: new THREE.Vector3(),
                 rot: new THREE.Euler(),
                 rotVel: new THREE.Vector3(
-                    (Math.random() - 0.5) * 10, 
-                    (Math.random() - 0.5) * 10, 
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
                     (Math.random() - 0.5) * 10
                 )
             });

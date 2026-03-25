@@ -111,6 +111,14 @@ io.on('connection', (socket: Socket) => {
     socket.join(mapIdStr);
     players[socket.id].mapId = mapIdStr;
 
+    // 플레이어 시작 위치 랜덤 설정
+    const pZone = mapConfig.playZone || 80;
+    players[socket.id].position = {
+      x: (Math.random() - 0.5) * pZone * 0.8,
+      y: 1,
+      z: (Math.random() - 0.5) * pZone * 0.8
+    };
+
     // 1. MAP_CONFIG 먼저 전송
     socket.emit('MAP_CONFIG', mapConfig);
 

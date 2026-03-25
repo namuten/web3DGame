@@ -72,6 +72,9 @@ socket.on('current_players', (players: Record<string, any>) => {
       if (players[id].hp !== undefined) {
         import('../game/player').then(m => m.applyDamage(players[id].hp));
       }
+      if (players[id].position) {
+        import('../game/player').then(m => m.respawnPlayer(players[id].hp ?? 100, players[id].position));
+      }
       const myInfo = localSelection || players[id];
       renderSnapshot({
         bodyColor: myInfo.bodyColor,

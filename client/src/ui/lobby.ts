@@ -65,6 +65,15 @@ export const showLobby = (): Promise<number> => {
           const enterBtn = document.getElementById('lobby-enter-btn') as HTMLButtonElement;
           if (enterBtn) enterBtn.disabled = false;
         });
+        item.addEventListener('dblclick', () => {
+          selectedMapId = map.id;
+          renderMaps(maps, playerCounts);
+          const enterBtn = document.getElementById('lobby-enter-btn') as HTMLButtonElement;
+          if (enterBtn) {
+            enterBtn.disabled = false;
+            enterBtn.click();
+          }
+        });
         listEl.appendChild(item);
       });
     };

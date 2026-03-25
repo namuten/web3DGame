@@ -216,16 +216,16 @@ class MonsterManager {
             
             this.innerCharMesh.position.copy(this.innerCharPos);
             
-            // 회전 물리 연산: 랜덤 방향의 난류(토크) 지속 추가 + 이동 속도 기반 회전
+            // 회전 물리 연산: 극단적으로 회전을 많이, 어지럽게 하도록 강력한 랜덤 토크와 속도 반영
             const randomTorque = new THREE.Vector3(
-                (Math.random() - 0.5) * 20,
-                (Math.random() - 0.5) * 20,
-                (Math.random() - 0.5) * 20
+                (Math.random() - 0.5) * 80,
+                (Math.random() - 0.5) * 80,
+                (Math.random() - 0.5) * 80
             ).multiplyScalar(deltaTime);
 
-            this.innerCharRotVel.add(this.innerCharVel.clone().multiplyScalar(deltaTime * 1.5));
+            this.innerCharRotVel.add(this.innerCharVel.clone().multiplyScalar(deltaTime * 10.0));
             this.innerCharRotVel.add(randomTorque);
-            this.innerCharRotVel.multiplyScalar(0.97); // 회전 지속성을 높이기 위해 댐핑 최소화
+            this.innerCharRotVel.multiplyScalar(0.99); // 거의 멈추지 않고 계속 빙글빙글 돌도록 댐핑 최소화
             
             this.innerCharRot.x += this.innerCharRotVel.x * deltaTime;
             this.innerCharRot.y += this.innerCharRotVel.y * deltaTime;

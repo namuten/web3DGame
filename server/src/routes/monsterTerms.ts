@@ -41,6 +41,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
     const { term, description } = req.body;
     const patch: { term?: string; description?: string } = {};
     if (term !== undefined) {
@@ -73,6 +74,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
     const deleted = await MonsterTerm.remove(id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted' });

@@ -25,7 +25,7 @@ interface CharacterData {
   visorType?: string;
 }
 
-const renderSnapshot = (char: CharacterData): Promise<string> => {
+export const renderSnapshot = (char: { bodyColor: string; flowerColor: string; visorColor: string; flowerType: string; visorType?: string }): Promise<string> => {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     canvas.width = 160;

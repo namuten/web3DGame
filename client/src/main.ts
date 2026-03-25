@@ -15,6 +15,7 @@ import {
   onMapPlayers,
 } from './network/socket';
 import { initHUD } from './ui/hud';
+import { initPartyUI, clearParty } from './ui/partyUI';
 import { initChat } from './ui/chat';
 import { showCharacterSelect } from './ui/characterSelect';
 import { showLobby } from './ui/lobby';
@@ -36,6 +37,7 @@ initPlayer();
 
 // HUD 초기화
 initHUD();
+initPartyUI();
 
 // 채팅 초기화
 initChat((msg: string) => {
@@ -89,6 +91,7 @@ showCharacterSelect().then((selection) => {
     // 4. MAP_CONFIG 수신 대기 등록
     onMapConfig((config) => {
       // 5. 맵 초기화
+      clearParty(); // 클리어 파티
       initWorld(config);
 
       // 탄환 충돌 대상 등록

@@ -230,13 +230,39 @@ class MonsterManager {
             for (const char of this.innerChars) {
                 // 댐핑 (마찰 및 저항)
                 const dampingForce = char.vel.clone().multiplyScalar(-0.6);
-                
+
                 // 아래로 너무 가라앉지 않게 중앙으로 향하는 미세한 힘 추가
                 const centeringForce = char.pos.clone().multiplyScalar(-centeringForceMag);
-                
-                const totalForce = new THREE.Vector3().add(inertiaForce).add(gravityForce).add(dampingForce).add(centeringForce);
-                
+
+                const totalForce = new THREE.Vector3()
+                    .add(gravityForce)
+                    .add(dampingForce)
+                    .add(centeringForce);
+
+                if (this.isMoving) {
+                    totalForce.add(inertiaForce);
+                }
+
                 char.vel.add(totalForce.multiplyScalar(deltaTime));
+
+                if (this.isMoving) {
+                    // 노이즈 킥: 공기가 계속 불어주는 느낌
+                    char.vel.add(new THREE.Vector3(
+                        (Math.random() - 0.5) * 15,
+                        (Math.random() - 0.5) * 15,
+                        (Math.random() - 0.5) * 15
+                    ).multiplyScalar(deltaTime));
+
+                    // 에너지 하한선: 절대 멈추지 않음
+                    if (char.vel.length() < 3.0) {
+                        char.vel.add(new THREE.Vector3(
+                            (Math.random() - 0.5) * 5,
+                            (Math.random() - 0.5) * 5,
+                            (Math.random() - 0.5) * 5
+                        ));
+                    }
+                }
+
                 char.pos.add(char.vel.clone().multiplyScalar(deltaTime));
                 
                 // 공(슬라임) 안쪽 벽 충돌 처리 (반경 6.0)
@@ -295,10 +321,10 @@ class MonsterManager {
 
             for (const char of this.innerChars) {
                 char.mesh.position.copy(char.pos);
-                
+
                 // 꾸준히 회전을 늦추어 바닥에 안착하면 자연스레 멈추게 함
-                char.rotVel.multiplyScalar(0.92);
-                
+                char.rotVel.multiplyScalar(this.isMoving ? 0.92 : 0.85);
+
                 char.rot.x += char.rotVel.x * deltaTime;
                 char.rot.y += char.rotVel.y * deltaTime;
                 char.rot.z += char.rotVel.z * deltaTime;

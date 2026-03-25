@@ -74,6 +74,18 @@ class MonsterManager {
     private previousWorldVel = new THREE.Vector3();
     private innerChars: { mesh: THREE.Group, pos: THREE.Vector3, vel: THREE.Vector3, rot: THREE.Euler, rotVel: THREE.Vector3 }[] = [];
 
+    private isMoving: boolean = false;
+    private stopTimer: number = 0;
+    private readonly MOVE_THRESHOLD = 2.0;   // 이 속도 이상이면 이동 상태
+    private readonly STOP_DELAY = 0.5;       // 정지 전환 지연 (초)
+
+    private _billboardWorldPos = new THREE.Vector3();
+    private _billboardDummy = new THREE.Object3D();
+
+    getIsMoving() {
+        return this.isMoving;
+    }
+
     spawn(data: MonsterData) {
         console.log(`[MonsterClientLog] Spawn Request Received:`, data);
         if (this.monsterMesh) this.remove();
@@ -142,6 +154,9 @@ class MonsterManager {
         this.previousMonsterPos.copy(group.position);
         this.previousWorldVel.set(0,0,0);
 
+        this.isMoving = false;
+        this.stopTimer = 0;
+
         const gy = getGroundHeight(data.position.x, data.position.z);
         console.log(`[MonsterClientLog] Spawned in Scene at:`, group.position, `GroundY:`, gy);
     }
@@ -158,7 +173,7 @@ class MonsterManager {
         this.targetScale = scale;
     }
 
-    animate(time: number, deltaTime: number = 0.016) {
+    animate(time: number, deltaTime: number = 0.016, camera?: THREE.Camera) {
         if (!this.monsterMesh) return;
 
         // 1. 플래시 효과 (피격 시 빨간색)
@@ -194,23 +209,63 @@ class MonsterManager {
         // 내부 물체 물리 엔진 보정 (바구니 안의 물건처럼)
         if (this.innerChars.length > 0 && deltaTime > 0.001) {
             const worldVel = new THREE.Vector3().subVectors(currentRealPos, this.previousMonsterPos).divideScalar(deltaTime);
+
+            // 이동/정지 상태 업데이트
+            const speed = worldVel.length();
+            if (speed > this.MOVE_THRESHOLD) {
+                this.isMoving = true;
+                this.stopTimer = this.STOP_DELAY; // 타이머 리셋
+            } else {
+                if (this.stopTimer > 0) {
+                    this.stopTimer -= deltaTime;
+                } else {
+                    this.isMoving = false;
+                }
+            }
+
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
             worldAccel.clampLength(0, 1000);
-            const inertiaForce = worldAccel.multiplyScalar(-1.2); // 관성력
-            const gravityForce = new THREE.Vector3(0, -60, 0); // 중력을 절반으로 줄임
-            const centeringForceMag = 40; // 중앙으로 살짝 띄워주는 힘 (부력 느낌)
+            const inertiaForce = worldAccel.clone().multiplyScalar(-2.5); // 관성력
+            const gravityForce = new THREE.Vector3(0, -8, 0); // 중력을 절반으로 줄임
+            const centeringForceMag = 5; // 중앙으로 살짝 띄워주는 힘 (부력 느낌)
             
             for (const char of this.innerChars) {
                 // 댐핑 (마찰 및 저항)
-                const dampingForce = char.vel.clone().multiplyScalar(-2.5);
-                
+                const dampingForce = char.vel.clone().multiplyScalar(-0.6);
+
                 // 아래로 너무 가라앉지 않게 중앙으로 향하는 미세한 힘 추가
                 const centeringForce = char.pos.clone().multiplyScalar(-centeringForceMag);
-                
-                const totalForce = new THREE.Vector3().add(inertiaForce).add(gravityForce).add(dampingForce).add(centeringForce);
-                
+
+                const totalForce = new THREE.Vector3()
+                    .add(gravityForce)
+                    .add(dampingForce)
+                    .add(centeringForce);
+
+                if (this.isMoving) {
+                    totalForce.add(inertiaForce);
+                }
+
                 char.vel.add(totalForce.multiplyScalar(deltaTime));
+
+                if (this.isMoving) {
+                    // 노이즈 킥: 공기가 계속 불어주는 느낌
+                    char.vel.add(new THREE.Vector3(
+                        (Math.random() - 0.5) * 15,
+                        (Math.random() - 0.5) * 15,
+                        (Math.random() - 0.5) * 15
+                    ).multiplyScalar(deltaTime));
+
+                    // 에너지 하한선: 절대 멈추지 않음
+                    if (char.vel.length() < 3.0) {
+                        char.vel.add(new THREE.Vector3(
+                            (Math.random() - 0.5) * 5,
+                            (Math.random() - 0.5) * 5,
+                            (Math.random() - 0.5) * 5
+                        ).multiplyScalar(deltaTime));
+                    }
+                }
+
                 char.pos.add(char.vel.clone().multiplyScalar(deltaTime));
                 
                 // 공(슬라임) 안쪽 벽 충돌 처리 (반경 6.0)
@@ -223,7 +278,7 @@ class MonsterManager {
                     // 반사 효과 (Bounce)
                     const dot = char.vel.dot(normal);
                     if (dot > 0) {
-                        const restitution = 0.5; // 튐 정도
+                        const restitution = 0.82; // 튐 정도
                         const bounceVel = normal.clone().multiplyScalar(dot * (1 + restitution));
                         char.vel.sub(bounceVel);
                         
@@ -255,7 +310,7 @@ class MonsterManager {
                         const relVel = new THREE.Vector3().subVectors(c1.vel, c2.vel);
                         const velAlongNormal = relVel.dot(normal);
                         if (velAlongNormal < 0) {
-                            const restitution = 0.5;
+                            const restitution = 0.82;
                             const impulse = normal.clone().multiplyScalar(velAlongNormal * (1 + restitution) * 0.5);
                             c1.vel.sub(impulse);
                             c2.vel.add(impulse);
@@ -269,14 +324,25 @@ class MonsterManager {
 
             for (const char of this.innerChars) {
                 char.mesh.position.copy(char.pos);
-                
+
                 // 꾸준히 회전을 늦추어 바닥에 안착하면 자연스레 멈추게 함
-                char.rotVel.multiplyScalar(0.92);
-                
-                char.rot.x += char.rotVel.x * deltaTime;
-                char.rot.y += char.rotVel.y * deltaTime;
-                char.rot.z += char.rotVel.z * deltaTime;
-                char.mesh.rotation.copy(char.rot);
+                char.rotVel.multiplyScalar(this.isMoving ? 0.92 : 0.85);
+
+                if (!this.isMoving && camera) {
+                    // 정지 상태: 카메라를 향해 서서히 회전 (billboarding)
+                    char.mesh.getWorldPosition(this._billboardWorldPos);
+                    this._billboardDummy.position.copy(this._billboardWorldPos);
+                    this._billboardDummy.lookAt(camera.position);
+                    char.mesh.quaternion.slerp(this._billboardDummy.quaternion, 0.1);
+                    // char.rot을 현재 quaternion과 동기화해 상태 전환 시 튀지 않게
+                    char.rot.setFromQuaternion(char.mesh.quaternion);
+                } else {
+                    // 이동 상태: 자유 회전
+                    char.rot.x += char.rotVel.x * deltaTime;
+                    char.rot.y += char.rotVel.y * deltaTime;
+                    char.rot.z += char.rotVel.z * deltaTime;
+                    char.mesh.rotation.copy(char.rot);
+                }
             }
             
             this.previousWorldVel.copy(worldVel);

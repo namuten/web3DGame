@@ -79,6 +79,9 @@ class MonsterManager {
     private readonly MOVE_THRESHOLD = 2.0;   // 이 속도 이상이면 이동 상태
     private readonly STOP_DELAY = 0.5;       // 정지 전환 지연 (초)
 
+    private _billboardWorldPos = new THREE.Vector3();
+    private _billboardDummy = new THREE.Object3D();
+
     getIsMoving() {
         return this.isMoving;
     }
@@ -327,13 +330,10 @@ class MonsterManager {
 
                 if (!this.isMoving && camera) {
                     // 정지 상태: 카메라를 향해 서서히 회전 (billboarding)
-                    const worldPos = new THREE.Vector3();
-                    char.mesh.getWorldPosition(worldPos);
-                    const dir = camera.position.clone().sub(worldPos);
-
-                    const dummy = new THREE.Object3D();
-                    dummy.lookAt(dir);
-                    char.mesh.quaternion.slerp(dummy.quaternion, 0.1);
+                    char.mesh.getWorldPosition(this._billboardWorldPos);
+                    this._billboardDummy.position.copy(this._billboardWorldPos);
+                    this._billboardDummy.lookAt(camera.position);
+                    char.mesh.quaternion.slerp(this._billboardDummy.quaternion, 0.1);
                     // char.rot을 현재 quaternion과 동기화해 상태 전환 시 튀지 않게
                     char.rot.setFromQuaternion(char.mesh.quaternion);
                 } else {

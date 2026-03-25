@@ -191,30 +191,45 @@ class MonsterManager {
         this.monsterMesh.position.copy(currentRealPos);
         this.monsterMesh.scale.set(scaleXZ, scaleY, scaleXZ);
 
-        // 내부 한글 물리 엔진 보정
+        // 내부 물체 물리 엔진 보정 (바구니 안의 물건처럼)
         if (this.innerChars.length > 0 && deltaTime > 0.001) {
             const worldVel = new THREE.Vector3().subVectors(currentRealPos, this.previousMonsterPos).divideScalar(deltaTime);
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
             worldAccel.clampLength(0, 1000);
-            const inertiaForce = worldAccel.multiplyScalar(-1.5);
+            const inertiaForce = worldAccel.multiplyScalar(-1.2); // 관성력
+            const gravityForce = new THREE.Vector3(0, -120, 0); // 아래로 향하는 중력
             
             for (const char of this.innerChars) {
-                // 스프링 힘 (다시 중앙으로 돌아오려는 성질)
-                const springForce = char.pos.clone().multiplyScalar(-60);
+                // 댐핑 (마찰 및 저항)
+                const dampingForce = char.vel.clone().multiplyScalar(-3.0);
                 
-                // 댐핑 반작용
-                const dampingForce = char.vel.clone().multiplyScalar(-3);
-                
-                const totalForce = new THREE.Vector3().add(inertiaForce).add(springForce).add(dampingForce);
+                const totalForce = new THREE.Vector3().add(inertiaForce).add(gravityForce).add(dampingForce);
                 
                 char.vel.add(totalForce.multiplyScalar(deltaTime));
                 char.pos.add(char.vel.clone().multiplyScalar(deltaTime));
                 
-                // 공 밖으로 너무 튀어나가지 않게 (반경 6.5)
-                if (char.pos.length() > 6.5) {
-                    char.pos.setLength(6.5);
-                    char.vel.multiplyScalar(-0.5); // 벽에 부딪히면 튕김
+                // 공(슬라임) 안쪽 벽 충돌 처리 (반경 6.0)
+                const maxRadius = 6.0;
+                if (char.pos.length() > maxRadius) {
+                    const normal = char.pos.clone().normalize();
+                    // 벽 밖으로 나가지 않게 밀어넣음
+                    char.pos.copy(normal.clone().multiplyScalar(maxRadius));
+                    
+                    // 반사 효과 (Bounce)
+                    const dot = char.vel.dot(normal);
+                    if (dot > 0) {
+                        const restitution = 0.5; // 튐 정도
+                        const bounceVel = normal.clone().multiplyScalar(dot * (1 + restitution));
+                        char.vel.sub(bounceVel);
+                        
+                        // 벽에 부딪힐 때만 랜덤 회전 발생 (혼자서 도는 현상 방지)
+                        char.rotVel.add(new THREE.Vector3(
+                            (Math.random() - 0.5) * 10,
+                            (Math.random() - 0.5) * 10,
+                            (Math.random() - 0.5) * 10
+                        ));
+                    }
                 }
             }
             
@@ -227,33 +242,31 @@ class MonsterManager {
             if (dist > 0 && dist < collisionRadius * 2) {
                 // 겹친 만큼 밀어내기
                 const overlap = collisionRadius * 2 - dist;
-                const push = diff.clone().normalize().multiplyScalar(overlap * 0.5);
+                const normal = diff.clone().normalize();
+                const push = normal.clone().multiplyScalar(overlap * 0.5);
                 c1.pos.add(push);
                 c2.pos.sub(push);
                 
-                // 속도 교환 (탄성 충돌 효과 및 감쇠)
-                const tempVel = c1.vel.clone();
-                c1.vel.copy(c2.vel).multiplyScalar(0.8);
-                c2.vel.copy(tempVel).multiplyScalar(0.8);
-                
-                // 강하게 부딪히면 추가 스핀 발생
-                c1.rotVel.add(new THREE.Vector3((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50));
-                c2.rotVel.add(new THREE.Vector3((Math.random()-0.5)*50, (Math.random()-0.5)*50, (Math.random()-0.5)*50));
+                // 상대 속도 기반 탄성 충돌
+                const relVel = new THREE.Vector3().subVectors(c1.vel, c2.vel);
+                const velAlongNormal = relVel.dot(normal);
+                if (velAlongNormal < 0) { // 서로 다가가는 중일 때
+                    const restitution = 0.6;
+                    const impulse = normal.clone().multiplyScalar(velAlongNormal * (1 + restitution) * 0.5);
+                    c1.vel.sub(impulse);
+                    c2.vel.add(impulse);
+                    
+                    // 강하게 부딪히면 회전 토크 발생
+                    c1.rotVel.add(new THREE.Vector3((Math.random()-0.5)*8, (Math.random()-0.5)*8, (Math.random()-0.5)*8));
+                    c2.rotVel.add(new THREE.Vector3((Math.random()-0.5)*8, (Math.random()-0.5)*8, (Math.random()-0.5)*8));
+                }
             }
 
             for (const char of this.innerChars) {
                 char.mesh.position.copy(char.pos);
                 
-                // 회전 물리 연산
-                const randomTorque = new THREE.Vector3(
-                    (Math.random() - 0.5) * 80,
-                    (Math.random() - 0.5) * 80,
-                    (Math.random() - 0.5) * 80
-                ).multiplyScalar(deltaTime);
-
-                char.rotVel.add(char.vel.clone().multiplyScalar(deltaTime * 10.0));
-                char.rotVel.add(randomTorque);
-                char.rotVel.multiplyScalar(0.99);
+                // 꾸준히 회전을 늦추어 바닥에 안착하면 자연스레 멈추게 함
+                char.rotVel.multiplyScalar(0.92);
                 
                 char.rot.x += char.rotVel.x * deltaTime;
                 char.rot.y += char.rotVel.y * deltaTime;

@@ -74,6 +74,15 @@ class MonsterManager {
     private previousWorldVel = new THREE.Vector3();
     private innerChars: { mesh: THREE.Group, pos: THREE.Vector3, vel: THREE.Vector3, rot: THREE.Euler, rotVel: THREE.Vector3 }[] = [];
 
+    private isMoving: boolean = false;
+    private stopTimer: number = 0;
+    private readonly MOVE_THRESHOLD = 2.0;   // 이 속도 이상이면 이동 상태
+    private readonly STOP_DELAY = 0.5;       // 정지 전환 지연 (초)
+
+    getIsMoving() {
+        return this.isMoving;
+    }
+
     spawn(data: MonsterData) {
         console.log(`[MonsterClientLog] Spawn Request Received:`, data);
         if (this.monsterMesh) this.remove();
@@ -142,6 +151,9 @@ class MonsterManager {
         this.previousMonsterPos.copy(group.position);
         this.previousWorldVel.set(0,0,0);
 
+        this.isMoving = false;
+        this.stopTimer = 0;
+
         const gy = getGroundHeight(data.position.x, data.position.z);
         console.log(`[MonsterClientLog] Spawned in Scene at:`, group.position, `GroundY:`, gy);
     }
@@ -194,6 +206,20 @@ class MonsterManager {
         // 내부 물체 물리 엔진 보정 (바구니 안의 물건처럼)
         if (this.innerChars.length > 0 && deltaTime > 0.001) {
             const worldVel = new THREE.Vector3().subVectors(currentRealPos, this.previousMonsterPos).divideScalar(deltaTime);
+
+            // 이동/정지 상태 업데이트
+            const speed = worldVel.length();
+            if (speed > this.MOVE_THRESHOLD) {
+                this.isMoving = true;
+                this.stopTimer = this.STOP_DELAY; // 타이머 리셋
+            } else {
+                if (this.stopTimer > 0) {
+                    this.stopTimer -= deltaTime;
+                } else {
+                    this.isMoving = false;
+                }
+            }
+
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
             worldAccel.clampLength(0, 1000);

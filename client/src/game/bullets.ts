@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
-import { playerMesh, cameraPhi, PHI_MAX, getLocalBodyColor } from './player';
+import { playerMesh, cameraPhi, cameraTheta, PHI_MAX, getLocalBodyColor } from './player';
 import { otherPlayers } from '../network/players';
 import { socket } from '../network/socket';
 import { monsterManager } from './monster';
@@ -80,20 +80,19 @@ export const fireBullet = () => {
   // 발사 방향 계산 (카메라 시선 방향 반영)
   // cameraPhi가 작을수록 위에서 아래를 보는 것이므로, 아래로 더 많이 꺾어야 함
   // PHI_MAX일 때(약 81도) 거의 수평, PHI_MIN일 때(약 5도) 거의 수직 하강
-  const verticalAngle = (cameraPhi / PHI_MAX) - 1.1; // -1.0 ~ 0 사이의 값으로 아래 조준
-  
-  const dir = new THREE.Vector3(0, verticalAngle, 1);
-  dir.applyQuaternion(playerMesh.quaternion);
-  dir.normalize();
+  const verticalAngle = (cameraPhi / PHI_MAX) - 1.1;
 
-  // 발사 기점 (머리 위 꽃 위치로 원복)
-  // 캐릭터 위(1.6) + 줄기 길이(0.8) + 기울기에 따른 보정
+  const fwdX = -Math.sin(cameraTheta);
+  const fwdZ = -Math.cos(cameraTheta);
+  const dir = new THREE.Vector3(fwdX, verticalAngle, fwdZ).normalize();
+
   const tiltFactor = (cameraPhi / PHI_MAX) * 1.5;
   const topZ = 0.3 * tiltFactor;
-  const topY = 1.6 + 0.8; 
-  
-  const origin = playerMesh.position.clone()
-    .add(new THREE.Vector3(0, topY, topZ).applyQuaternion(playerMesh.quaternion));
+  const topY = 1.6 + 0.8;
+
+  const origin = playerMesh.position.clone().add(
+    new THREE.Vector3(fwdX * topZ, topY, fwdZ * topZ)
+  );
 
   createBullet(origin, dir, 'local');
 

@@ -25,6 +25,7 @@ import {
   registerCollidables,
   setShootCallback,
 } from './game/bullets';
+import { showChatBubble, updateChatBubbles } from './game/chatBubble';
 import { monsterManager } from './game/monster';
 
 // 화면에 렌더러 등록
@@ -37,7 +38,10 @@ initPlayer();
 initHUD();
 
 // 채팅 초기화
-initChat((msg: string) => { sendChatMessage(msg); });
+initChat((msg: string) => {
+  sendChatMessage(msg);
+  showChatBubble(playerMesh, msg);  // 로컬 플레이어 말풍선
+});
 
 // 탄환 발사 입력 초기화
 initBulletInput();
@@ -53,6 +57,7 @@ const animate = () => {
   const time = clock.getElapsedTime();
   updatePlayer(deltaTime);
   updateBullets(deltaTime);
+  updateChatBubbles(deltaTime);
   updateWorld(time);
   monsterManager.animate(time, deltaTime);
   broadcastLocalPosition();

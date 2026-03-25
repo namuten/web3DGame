@@ -40,7 +40,7 @@ const keys = {
 };
 
 // ─── 궤도 카메라 (Spherical Orbit) 파라미터 ───────────────────
-let cameraTheta = Math.PI;
+export let cameraTheta = Math.PI;
 export let cameraPhi = Math.PI / 2.8;
 const CAMERA_DIST = 14;
 

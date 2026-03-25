@@ -29,11 +29,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 // 생성
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, bodyColor, flowerColor, visorColor, flowerType } = req.body;
-    if (!name || !bodyColor || !flowerColor || !visorColor || !flowerType) {
+    const { name, description, bodyColor, flowerColor, visorColor, flowerType, visorType } = req.body;
+    if (!name || !bodyColor || !flowerColor || !visorColor || !flowerType || !visorType) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    const character = await Character.create({ name, description, bodyColor, flowerColor, visorColor, flowerType });
+    const character = await Character.create({ name, description, bodyColor, flowerColor, visorColor, flowerType, visorType });
     res.status(201).json(character);
   } catch (err: any) {
     res.status(400).json({ error: 'Failed to create', message: err.message });

@@ -16,7 +16,7 @@ playerMesh.add(characterModel);
 let localBodyColor: number = 0xffb7b2;
 export const getLocalBodyColor = () => localBodyColor;
 
-export const setPlayerColor = (bodyColor: number, flowerColor: number, visorColor?: number, flowerType: string = 'daisy') => {
+export const setPlayerColor = (bodyColor: number, flowerColor: number, visorColor?: number, flowerType: string = 'daisy', visorType: string = 'normal') => {
   localBodyColor = bodyColor;
   if ((characterModel as any).setBodyColor) {
     (characterModel as any).setBodyColor(bodyColor);
@@ -26,7 +26,9 @@ export const setPlayerColor = (bodyColor: number, flowerColor: number, visorColo
   } else if ((characterModel as any).setFlowerColor) {
     (characterModel as any).setFlowerColor(flowerColor);
   }
-  if (visorColor !== undefined && (characterModel as any).setVisorColor) {
+  if (visorColor !== undefined && (characterModel as any).setVisorStyle) {
+    (characterModel as any).setVisorStyle(visorColor, visorType);
+  } else if (visorColor !== undefined && (characterModel as any).setVisorColor) {
     (characterModel as any).setVisorColor(visorColor);
   }
 };

@@ -36,6 +36,7 @@ export const connectWithCharacter = (selection: CharacterSelection) => {
     flowerColor: selection.flowerColor,
     visorColor: selection.visorColor,
     flowerType: selection.flowerType,
+    visorType: selection.visorType,
   };
   socket.connect();
 };
@@ -51,7 +52,8 @@ socket.on('current_players', (players: Record<string, any>) => {
         players[id].flowerColor,
         players[id].visorColor,
         players[id].name,
-        players[id].flowerType
+        players[id].flowerType,
+        players[id].visorType
       );
     } else {
       console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
@@ -59,7 +61,8 @@ socket.on('current_players', (players: Record<string, any>) => {
         toThreeColor(players[id].bodyColor),
         toThreeColor(players[id].flowerColor),
         toThreeColor(players[id].visorColor),
-        players[id].flowerType
+        players[id].flowerType,
+        players[id].visorType
       );
       if (players[id].hp !== undefined) {
         import('../game/player').then(m => m.applyDamage(players[id].hp));
@@ -77,7 +80,8 @@ socket.on('player_joined', (playerData: any) => {
     playerData.flowerColor,
     playerData.visorColor,
     playerData.name,
-    playerData.flowerType
+    playerData.flowerType,
+    playerData.visorType
   );
 });
 
@@ -158,7 +162,8 @@ function addOtherPlayer(
   flowerColor: string = '#FFB7B2',
   visorColor: string = '#333333',
   name: string = '익명',
-  flowerType: string = 'daisy'
+  flowerType: string = 'daisy',
+  visorType: string = 'normal'
 ) {
   if (otherPlayers[id]) return;
 
@@ -168,8 +173,12 @@ function addOtherPlayer(
 
   setRemotePlayerColor(id, bodyNum);
 
-  const model = createCharacterModel(bodyNum, flowerNum, flowerType);
-  if ((model as any).setVisorColor) (model as any).setVisorColor(visorNum);
+  const model = createCharacterModel(bodyNum, flowerNum, flowerType, visorType);
+  if ((model as any).setVisorStyle) {
+    (model as any).setVisorStyle(visorNum, visorType);
+  } else if ((model as any).setVisorColor) {
+    (model as any).setVisorColor(visorNum);
+  }
   model.position.set(initialPos.x, initialPos.y, initialPos.z);
   model.userData = { playerId: id };
 

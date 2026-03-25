@@ -11,6 +11,7 @@ export interface CharacterSelection {
   flowerColor: string;
   visorColor: string;
   flowerType: string;
+  visorType: string;
 }
 
 interface CharacterData {
@@ -21,6 +22,7 @@ interface CharacterData {
   flowerColor: string;
   visorColor: string;
   flowerType: string;
+  visorType?: string;
 }
 
 const renderSnapshot = (char: CharacterData): Promise<string> => {
@@ -44,7 +46,7 @@ const renderSnapshot = (char: CharacterData): Promise<string> => {
     camera.position.set(0, 2.5, 4);
     camera.lookAt(0, 1, 0);
 
-    const model = createCharacterModel(toThreeColor(char.bodyColor), toThreeColor(char.flowerColor), char.flowerType);
+    const model = createCharacterModel(toThreeColor(char.bodyColor), toThreeColor(char.flowerColor), char.flowerType, char.visorType || 'normal');
     if ((model as any).setVisorColor) (model as any).setVisorColor(toThreeColor(char.visorColor));
     model.position.set(0, -0.5, 0);
     scene.add(model);
@@ -158,6 +160,7 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
           flowerColor: selectedChar!.flowerColor,
           visorColor: selectedChar!.visorColor,
           flowerType: selectedChar!.flowerType,
+          visorType: selectedChar!.visorType || 'normal',
         });
       }, 400);
     });

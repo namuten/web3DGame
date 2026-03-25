@@ -124,7 +124,99 @@ const createFlowerModel = (flowerColor: number, flowerType: string = 'daisy') =>
   return flowerGroup;
 };
 
-const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType: string = 'daisy') => {
+const createStarShape = (outerRadius: number, innerRadius: number, points: number) => {
+  const shape = new THREE.Shape();
+  const PI2 = Math.PI * 2;
+  for (let i = 0; i < points * 2; i++) {
+    const r = (i % 2 === 0) ? outerRadius : innerRadius;
+    const a = (i / (points * 2)) * PI2 + Math.PI / 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  return shape;
+};
+
+const createHeartShape = (scale: number) => {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.2 * scale);
+  shape.bezierCurveTo(0.5 * scale, 0.6 * scale, 1.2 * scale, 0, 0, -0.8 * scale);
+  shape.bezierCurveTo(-1.2 * scale, 0, -0.5 * scale, 0.6 * scale, 0, 0.2 * scale);
+  return shape;
+};
+
+const createVisorModel = (visorColor: number, visorType: string = 'normal') => {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: visorColor, roughness: 0.2, metalness: 0.1 });
+  const extrudeSettings = { depth: 0.05, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
+  
+  if (visorType === 'glasses') {
+    const lensL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
+    lensL.rotation.x = Math.PI / 2;
+    lensL.position.set(-0.2, 0, 0);
+    group.add(lensL);
+    const lensR = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
+    lensR.rotation.x = Math.PI / 2;
+    lensR.position.set(0.2, 0, 0);
+    group.add(lensR);
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else if (visorType === 'sunglasses') {
+    const lensL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.05), mat);
+    lensL.position.set(-0.19, 0, 0);
+    group.add(lensL);
+    const lensR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.05), mat);
+    lensR.position.set(0.19, 0, 0);
+    group.add(lensR);
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else if (visorType === 'star') {
+    const starGeoL = new THREE.ExtrudeGeometry(createStarShape(0.2, 0.08, 5), extrudeSettings);
+    starGeoL.center();
+    const lensL = new THREE.Mesh(starGeoL, mat);
+    lensL.position.set(-0.2, 0, 0);
+    group.add(lensL);
+
+    const starGeoR = new THREE.ExtrudeGeometry(createStarShape(0.2, 0.08, 5), extrudeSettings);
+    starGeoR.center();
+    const lensR = new THREE.Mesh(starGeoR, mat);
+    lensR.position.set(0.2, 0, 0);
+    group.add(lensR);
+
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else if (visorType === 'heart') {
+    const heartGeoL = new THREE.ExtrudeGeometry(createHeartShape(0.25), extrudeSettings);
+    heartGeoL.center();
+    // 하트 형태가 거꾸로 뒤집혀보일 수 있으므로 회전 처리 (테스트 결과 필요시)
+    // 원점에서 베지어 커브를 그릴 때 y값이 양수면 위, 음수면 아래입니다. 
+    const lensL = new THREE.Mesh(heartGeoL, mat);
+    lensL.position.set(-0.2, 0, 0);
+    group.add(lensL);
+
+    const heartGeoR = new THREE.ExtrudeGeometry(createHeartShape(0.25), extrudeSettings);
+    heartGeoR.center();
+    const lensR = new THREE.Mesh(heartGeoR, mat);
+    lensR.position.set(0.2, 0, 0);
+    group.add(lensR);
+
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else {
+    // Normal visor (기본보다 조금 더 두껍고 크게)
+    const visorGeo = new THREE.BoxGeometry(0.65, 0.2, 0.1);
+    const visor = new THREE.Mesh(visorGeo, mat);
+    group.add(visor);
+  }
+
+  (group as any).setVisorColor = (color: number) => {
+    mat.color.setHex(color);
+  };
+  return group;
+};
+
+const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType: string = 'daisy', visorType: string = 'normal') => {
   const root = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.1 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1 });
@@ -155,9 +247,7 @@ const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType
   topSphere.position.y = 0.5;
   upperBody.add(topSphere);
 
-  const visorGeo = new THREE.BoxGeometry(0.6, 0.15, 0.1);
-  let visorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2, metalness: 0.1 });
-  const visor = new THREE.Mesh(visorGeo, visorMat);
+  let visor = createVisorModel(0x333333, visorType);
   visor.position.set(0, 0.4, 0.48);
   upperBody.add(visor);
 
@@ -174,7 +264,13 @@ const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType
     if ((flower as any).setPetalColor) (flower as any).setPetalColor(c);
   };
   (root as any).setVisorColor = (c: number) => {
-    visor.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.2, metalness: 0.1 });
+    if ((visor as any).setVisorColor) (visor as any).setVisorColor(c);
+  };
+  (root as any).setVisorStyle = (c: number, t: string) => {
+    upperBody.remove(visor);
+    visor = createVisorModel(c, t);
+    visor.position.set(0, 0.4, 0.48);
+    upperBody.add(visor);
   };
   (root as any).setFlowerStyle = (c: number, t: string) => {
     upperBody.remove(flower);
@@ -263,11 +359,11 @@ export class Preview3D {
     this._animate();
   }
 
-  loadCharacter(bodyColor: string, flowerColor: string, visorColor: string, flowerType: string = 'daisy') {
+  loadCharacter(bodyColor: string, flowerColor: string, visorColor: string, flowerType: string = 'daisy', visorType: string = 'normal') {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
     this.scene.background = new THREE.Color(0xA2D2FF);
     this.scene.fog = null;
-    this.model = createCharacterModel(toThreeColor(bodyColor), toThreeColor(flowerColor), flowerType);
+    this.model = createCharacterModel(toThreeColor(bodyColor), toThreeColor(flowerColor), flowerType, visorType);
     (this.model as any).setVisorColor(toThreeColor(visorColor));
     this.model.position.set(0, -1, 0);
     this.scene.add(this.model);
@@ -337,12 +433,12 @@ export class Preview3D {
     this.scene.add(this.model);
   }
 
-  updateColor(type: 'body' | 'flower' | 'visor', hexColor: string, flowerType: string = 'daisy') {
+  updateColor(type: 'body' | 'flower' | 'visor', hexColor: string, styleType: string = 'daisy') {
     if (!this.model) return;
     const c = toThreeColor(hexColor);
     if (type === 'body')   (this.model as any).setBodyColor(c);
-    if (type === 'flower') (this.model as any).setFlowerStyle(c, flowerType);
-    if (type === 'visor')  (this.model as any).setVisorColor(c);
+    if (type === 'flower') (this.model as any).setFlowerStyle(c, styleType);
+    if (type === 'visor')  (this.model as any).setVisorStyle(c, styleType);
   }
 
   private _animate = () => {

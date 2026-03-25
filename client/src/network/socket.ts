@@ -5,6 +5,7 @@ import { playerMesh, setPlayerColor, getUpperYaw, getUpperPitch } from '../game/
 import { createCharacterModel } from '../game/characterModel';
 import { appendMessage } from '../ui/chat';
 import { addRemoteBullet, setRemotePlayerColor } from '../game/bullets';
+import { showChatBubble, removeChatBubble } from '../game/chatBubble';
 import { createNameTag } from '../game/nameTag';
 import { otherPlayers } from './players';
 import { toThreeColor } from '../utils';
@@ -103,8 +104,11 @@ socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:numb
 });
 
 // 채팅 메시지 수신
-socket.on('CHAT_MESSAGE', (data: { sender: string, text: string }) => {
-  appendMessage(data.sender, data.text, '#00ffaa'); // 다른사람 메시지는 연두색
+socket.on('CHAT_MESSAGE', (data: { sender: string, senderId: string, text: string }) => {
+  appendMessage(data.sender, data.text, '#00ffaa');
+  if (data.senderId && otherPlayers[data.senderId]) {
+    showChatBubble(otherPlayers[data.senderId], data.text);
+  }
 });
 
 // 원격 플레이어 탄환 수신
@@ -119,6 +123,7 @@ socket.on('SHOOT', (data: {
 // 접속 종료 플레이어 수신 (월드에서 삭제)
 socket.on('player_left', (id: string) => {
   if (otherPlayers[id]) {
+    removeChatBubble(otherPlayers[id]);
     scene.remove(otherPlayers[id]);
     delete otherPlayers[id];
     delete nameTags[id];

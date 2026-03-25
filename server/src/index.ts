@@ -232,6 +232,7 @@ io.on('connection', (socket: Socket) => {
     
     socket.to(player.mapId).emit('CHAT_MESSAGE', {
         sender: player.name || '익명',
+        senderId: socket.id,
         text: data.text
     });
   });

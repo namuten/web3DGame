@@ -8,6 +8,9 @@ import { ensureTable as ensureMapTable } from './models/Map.js';
 import characterRoutes from './routes/characters.js';
 import mapRoutes from './routes/maps.js';
 import * as MapModel from './models/Map.js';
+import { ensureTable as ensureMonsterTermTable } from './models/MonsterTerm.js';
+import * as MonsterTermModel from './models/MonsterTerm.js';
+import monsterTermRoutes from './routes/monsterTerms.js';
 
 const app = express();
 app.use(cors());
@@ -22,12 +25,15 @@ pool.getConnection()
     console.log('✅ characters 테이블 준비 완료');
     await ensureMapTable();
     console.log('✅ maps 테이블 준비 완료');
+    await ensureMonsterTermTable();
+    console.log('✅ monster_terms 테이블 준비 완료');
   })
   .catch((err: any) => console.error('❌ MySQL 연결 실패:', err));
 
 // API 라우터
 app.use('/api/characters', characterRoutes);
 app.use('/api/maps', mapRoutes);
+app.use('/api/monster-terms', monsterTermRoutes);
 
 app.get('/', (_req, res) => res.send('OK'));
 
@@ -135,23 +141,26 @@ io.on('connection', (socket: Socket) => {
     
     if (!monsters[mapIdStr] && !spawnTimers[mapIdStr]) {
       socket.emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime spawn timer started (5s)...` });
-      spawnTimers[mapIdStr] = setTimeout(() => {
+      spawnTimers[mapIdStr] = setTimeout(async () => {
         const config = mapConfig;
         const limit = config.playZone || 80;
+        const termRecord = await MonsterTermModel.findRandom();
         const monster = {
           id: 'boss_slime',
           mapId: mapIdStr,
-          position: { 
+          position: {
             x: (Math.random() - 0.5) * limit * 0.8,
-            y: 5, 
-            z: (Math.random() - 0.5) * limit * 0.8 
+            y: 5,
+            z: (Math.random() - 0.5) * limit * 0.8
           },
           targetId: null,
           speed: 0.45,
           alive: true,
           hp: 300,
           maxHp: 300,
-          scale: 1.0
+          scale: 1.0,
+          term: termRecord?.term ?? undefined,
+          termDesc: termRecord?.description ?? undefined,
         };
         monsters[mapIdStr] = monster;
         io.to(mapIdStr).emit('MONSTER_SPAWN', monster);

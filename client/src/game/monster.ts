@@ -226,7 +226,7 @@ class MonsterManager {
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
             worldAccel.clampLength(0, 1000);
-            const inertiaForce = worldAccel.multiplyScalar(-2.5); // 관성력
+            const inertiaForce = worldAccel.clone().multiplyScalar(-2.5); // 관성력
             const gravityForce = new THREE.Vector3(0, -8, 0); // 중력을 절반으로 줄임
             const centeringForceMag = 5; // 중앙으로 살짝 띄워주는 힘 (부력 느낌)
             

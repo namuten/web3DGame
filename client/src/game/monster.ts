@@ -197,13 +197,13 @@ class MonsterManager {
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
             worldAccel.clampLength(0, 1000);
-            const inertiaForce = worldAccel.multiplyScalar(-1.2); // 관성력
-            const gravityForce = new THREE.Vector3(0, -60, 0); // 중력을 절반으로 줄임
-            const centeringForceMag = 40; // 중앙으로 살짝 띄워주는 힘 (부력 느낌)
+            const inertiaForce = worldAccel.multiplyScalar(-2.5); // 관성력
+            const gravityForce = new THREE.Vector3(0, -8, 0); // 중력을 절반으로 줄임
+            const centeringForceMag = 5; // 중앙으로 살짝 띄워주는 힘 (부력 느낌)
             
             for (const char of this.innerChars) {
                 // 댐핑 (마찰 및 저항)
-                const dampingForce = char.vel.clone().multiplyScalar(-2.5);
+                const dampingForce = char.vel.clone().multiplyScalar(-0.6);
                 
                 // 아래로 너무 가라앉지 않게 중앙으로 향하는 미세한 힘 추가
                 const centeringForce = char.pos.clone().multiplyScalar(-centeringForceMag);
@@ -223,7 +223,7 @@ class MonsterManager {
                     // 반사 효과 (Bounce)
                     const dot = char.vel.dot(normal);
                     if (dot > 0) {
-                        const restitution = 0.5; // 튐 정도
+                        const restitution = 0.82; // 튐 정도
                         const bounceVel = normal.clone().multiplyScalar(dot * (1 + restitution));
                         char.vel.sub(bounceVel);
                         
@@ -255,7 +255,7 @@ class MonsterManager {
                         const relVel = new THREE.Vector3().subVectors(c1.vel, c2.vel);
                         const velAlongNormal = relVel.dot(normal);
                         if (velAlongNormal < 0) {
-                            const restitution = 0.5;
+                            const restitution = 0.82;
                             const impulse = normal.clone().multiplyScalar(velAlongNormal * (1 + restitution) * 0.5);
                             c1.vel.sub(impulse);
                             c2.vel.add(impulse);

@@ -94,6 +94,12 @@ showCharacterSelect().then((selection) => {
       clearParty(); // 클리어 파티
       initWorld(config);
 
+      // 캐릭터 시작 위치 랜덤화 (로컬에서 즉시 반영)
+      const pZone = config.playZone || 80;
+      const rx = (Math.random() - 0.5) * pZone * 0.8;
+      const rz = (Math.random() - 0.5) * pZone * 0.8;
+      playerMesh.position.set(rx, 1, rz);
+
       // 탄환 충돌 대상 등록
       registerCollidables(worldCollidables);
 

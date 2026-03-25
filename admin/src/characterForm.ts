@@ -10,6 +10,7 @@ const defaultChar = (): Omit<CharacterData, '_id'> => ({
   flowerColor: '#FFB7B2',
   visorColor: '#333333',
   flowerType: 'daisy',
+  visorType: 'normal',
 });
 
 export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
@@ -62,6 +63,16 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
             <option value="clover" ${data.flowerType === 'clover' ? 'selected' : ''}>Clover (네잎클로버)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>바이저 분류</label>
+          <select id="f-visor-type">
+            <option value="normal" ${data.visorType === 'normal' || !data.visorType ? 'selected' : ''}>Normal (일반)</option>
+            <option value="glasses" ${data.visorType === 'glasses' ? 'selected' : ''}>Glasses (안경)</option>
+            <option value="sunglasses" ${data.visorType === 'sunglasses' ? 'selected' : ''}>Sunglasses (선글라스)</option>
+            <option value="star" ${data.visorType === 'star' ? 'selected' : ''}>Star (별 모양)</option>
+            <option value="heart" ${data.visorType === 'heart' ? 'selected' : ''}>Heart (하트 모양)</option>
+          </select>
+        </div>
         <div class="form-actions">
           <button id="save-btn">저장</button>
           <button id="cancel-btn">취소</button>
@@ -77,7 +88,7 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
   canvas.height = 600;
   if (preview) preview.destroy();
   preview = new Preview3D(canvas);
-  preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor, data.flowerType || 'daisy');
+  preview.loadCharacter(data.bodyColor, data.flowerColor, data.visorColor, data.flowerType || 'daisy', data.visorType || 'normal');
 
   // 색상 입력 동기화 헬퍼
   const syncColor = (pickerId: string, textId: string, colorType: 'body' | 'flower' | 'visor') => {
@@ -88,7 +99,8 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
       const val = (e.target as HTMLInputElement).value;
       text.value = val;
       const fType = (document.getElementById('f-type') as HTMLSelectElement).value;
-      preview?.updateColor(colorType, val, colorType === 'flower' ? fType : undefined);
+      const vType = (document.getElementById('f-visor-type') as HTMLSelectElement).value;
+      preview?.updateColor(colorType, val, colorType === 'flower' ? fType : (colorType === 'visor' ? vType : undefined));
     });
 
     text.addEventListener('input', (e) => {
@@ -96,7 +108,8 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
       if (/^#[0-9a-fA-F]{6}$/.test(val)) {
         picker.value = val;
         const fType = (document.getElementById('f-type') as HTMLSelectElement).value;
-        preview?.updateColor(colorType, val, colorType === 'flower' ? fType : undefined);
+        const vType = (document.getElementById('f-visor-type') as HTMLSelectElement).value;
+        preview?.updateColor(colorType, val, colorType === 'flower' ? fType : (colorType === 'visor' ? vType : undefined));
       }
     });
   };
@@ -111,6 +124,12 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
     preview?.updateColor('flower', color, type);
   });
 
+  document.getElementById('f-visor-type')!.addEventListener('change', (e) => {
+    const type = (e.target as HTMLSelectElement).value;
+    const color = (document.getElementById('f-visor') as HTMLInputElement).value;
+    preview?.updateColor('visor', color, type);
+  });
+
   // 저장
   document.getElementById('save-btn')!.addEventListener('click', async () => {
     const payload: Omit<CharacterData, '_id'> = {
@@ -120,6 +139,7 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
       flowerColor: (document.getElementById('f-flower') as HTMLInputElement).value,
       visorColor: (document.getElementById('f-visor') as HTMLInputElement).value,
       flowerType: (document.getElementById('f-type') as HTMLSelectElement).value,
+      visorType: (document.getElementById('f-visor-type') as HTMLSelectElement).value,
     };
 
     if (!payload.name) { alert('이름을 입력해주세요.'); return; }

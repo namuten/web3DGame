@@ -3,7 +3,7 @@ import * as THREE from 'three';
 /**
  * 2톤 알약 캐릭터를 생성 (하단 흰색 고정, 상단 색상 가변)
  */
-export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = bodyColor, flowerType: string = 'daisy') => {
+export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = bodyColor, flowerType: string = 'daisy', visorType: string = 'normal') => {
   const root = new THREE.Group();
   
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.1, metalness: 0 });
@@ -35,9 +35,7 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
   upperBody.add(topSphere);
 
   // 바이저 (전면 표시)
-  const visorGeo = new THREE.BoxGeometry(0.6, 0.15, 0.1);
-  const visorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2, metalness: 0.1 });
-  const visor = new THREE.Mesh(visorGeo, visorMat);
+  let visor = createVisorModel(0x333333, visorType);
   visor.position.set(0, 0.4, 0.48); // 허리 위 상대 좌표
   upperBody.add(visor);
 
@@ -65,11 +63,13 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
 
   // 바이저 색상 변경
   (root as any).setVisorColor = (newColor: number) => {
-    visor.material = new THREE.MeshStandardMaterial({
-      color: newColor,
-      roughness: 0.2,
-      metalness: 0.1,
-    });
+    if ((visor as any).setVisorColor) (visor as any).setVisorColor(newColor);
+  };
+  (root as any).setVisorStyle = (newColor: number, newType: string) => {
+    upperBody.remove(visor);
+    visor = createVisorModel(newColor, newType);
+    visor.position.set(0, 0.4, 0.48);
+    upperBody.add(visor);
   };
 
   // 꽃 색상 변경
@@ -254,4 +254,102 @@ function createFlowerModel(flowerColor: number, flowerType: string = 'daisy') {
   };
 
   return flowerGroup;
+}
+
+const createStarShape = (outerRadius: number, innerRadius: number, points: number) => {
+  const shape = new THREE.Shape();
+  const PI2 = Math.PI * 2;
+  for (let i = 0; i < points * 2; i++) {
+    const r = (i % 2 === 0) ? outerRadius : innerRadius;
+    const a = (i / (points * 2)) * PI2 + Math.PI / 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  return shape;
+};
+
+const createHeartShape = (scale: number) => {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.2 * scale);
+  shape.bezierCurveTo(0.5 * scale, 0.6 * scale, 1.2 * scale, 0, 0, -0.8 * scale);
+  shape.bezierCurveTo(-1.2 * scale, 0, -0.5 * scale, 0.6 * scale, 0, 0.2 * scale);
+  return shape;
+};
+
+/**
+ * 바이저 모델 생성 (독립형)
+ */
+function createVisorModel(visorColor: number, visorType: string = 'normal') {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: visorColor, roughness: 0.2, metalness: 0.1 });
+  const extrudeSettings = { depth: 0.05, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
+  
+  if (visorType === 'glasses') {
+    const lensL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
+    lensL.rotation.x = Math.PI / 2;
+    lensL.position.set(-0.2, 0, 0);
+    group.add(lensL);
+    
+    const lensR = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
+    lensR.rotation.x = Math.PI / 2;
+    lensR.position.set(0.2, 0, 0);
+    group.add(lensR);
+    
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else if (visorType === 'sunglasses') {
+    const lensL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.05), mat);
+    lensL.position.set(-0.19, 0, 0);
+    group.add(lensL);
+    
+    const lensR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.05), mat);
+    lensR.position.set(0.19, 0, 0);
+    group.add(lensR);
+    
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else if (visorType === 'star') {
+    const starGeoL = new THREE.ExtrudeGeometry(createStarShape(0.2, 0.08, 5), extrudeSettings);
+    starGeoL.center();
+    const lensL = new THREE.Mesh(starGeoL, mat);
+    lensL.position.set(-0.2, 0, 0);
+    group.add(lensL);
+
+    const starGeoR = new THREE.ExtrudeGeometry(createStarShape(0.2, 0.08, 5), extrudeSettings);
+    starGeoR.center();
+    const lensR = new THREE.Mesh(starGeoR, mat);
+    lensR.position.set(0.2, 0, 0);
+    group.add(lensR);
+
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else if (visorType === 'heart') {
+    const heartGeoL = new THREE.ExtrudeGeometry(createHeartShape(0.25), extrudeSettings);
+    heartGeoL.center();
+    const lensL = new THREE.Mesh(heartGeoL, mat);
+    lensL.position.set(-0.2, 0, 0);
+    group.add(lensL);
+
+    const heartGeoR = new THREE.ExtrudeGeometry(createHeartShape(0.25), extrudeSettings);
+    heartGeoR.center();
+    const lensR = new THREE.Mesh(heartGeoR, mat);
+    lensR.position.set(0.2, 0, 0);
+    group.add(lensR);
+
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
+    group.add(bridge);
+  } else {
+    // Normal visor
+    const visorGeo = new THREE.BoxGeometry(0.65, 0.2, 0.1);
+    const visor = new THREE.Mesh(visorGeo, mat);
+    group.add(visor);
+  }
+
+  (group as any).setVisorColor = (color: number) => {
+    mat.color.setHex(color);
+  };
+  
+  return group;
 }

@@ -8,11 +8,11 @@ export const renderTermForm = (term: TermData | null, onSaved: () => void) => {
     <div class="fields-col" style="max-width:480px;">
       <div class="form-group">
         <label>용어 * (최대 10자)</label>
-        <input id="t-term" type="text" maxlength="10" value="${term?.term ?? ''}" placeholder="예: 퀀텀역학" />
+        <input id="t-term" type="text" maxlength="10" placeholder="예: 퀀텀역학" />
       </div>
       <div class="form-group">
         <label>설명 * (최대 200자)</label>
-        <textarea id="t-desc" maxlength="200" rows="4" placeholder="용어에 대한 설명을 입력하세요">${term?.description ?? ''}</textarea>
+        <textarea id="t-desc" maxlength="200" rows="4" placeholder="용어에 대한 설명을 입력하세요"></textarea>
       </div>
       <div class="form-actions">
         <button id="t-save-btn" style="background:#51cf66;color:#fff;">저장</button>
@@ -20,6 +20,10 @@ export const renderTermForm = (term: TermData | null, onSaved: () => void) => {
       </div>
     </div>
   `;
+
+  // Set values via DOM properties (XSS-safe)
+  (document.getElementById('t-term') as HTMLInputElement).value = term?.term ?? '';
+  (document.getElementById('t-desc') as HTMLTextAreaElement).value = term?.description ?? '';
 
   document.getElementById('t-cancel-btn')!.addEventListener('click', () => {
     container.innerHTML = '<p style="color:#aaa;padding:20px;">좌측에서 용어를 선택하거나 새 용어를 추가하세요.</p>';

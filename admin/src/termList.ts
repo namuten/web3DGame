@@ -43,8 +43,12 @@ export const renderTermList = (
     delBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm(`"${term.term}"을 삭제할까요?`)) return;
-      await deleteTerm(term.id!);
-      window.location.reload();
+      try {
+        await deleteTerm(term.id!);
+        window.location.reload();
+      } catch (err: any) {
+        alert('삭제 실패: ' + err.message);
+      }
     });
 
     actions.appendChild(editBtn);

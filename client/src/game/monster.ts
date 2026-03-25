@@ -7,7 +7,7 @@ export interface MonsterData {
     position: { x: number; y: number; z: number };
 }
 
-function createKoreanLetterSprite() {
+function createKoreanLetterMesh() {
     const chars = [
         "가","나","다","라","마","바","사","아","자","차","카","타","파","하",
         "거","너","더","러","머","버","서","어","저","처","커","터","퍼","허",
@@ -39,10 +39,16 @@ function createKoreanLetterSprite() {
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
     
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(7, 7, 1);
-    return sprite;
+    // 3D 공간 안에서 자유롭게 회전하는 양면 판때기(Plane) 생성
+    const material = new THREE.MeshStandardMaterial({ 
+        map: texture, 
+        transparent: true, 
+        side: THREE.DoubleSide,
+        alphaTest: 0.1 
+    });
+    const geo = new THREE.PlaneGeometry(8, 8);
+    const mesh = new THREE.Mesh(geo, material);
+    return mesh;
 }
 
 class MonsterManager {
@@ -56,9 +62,11 @@ class MonsterManager {
 
     private previousMonsterPos = new THREE.Vector3();
     private previousWorldVel = new THREE.Vector3();
-    private innerCharMesh: THREE.Sprite | null = null;
+    private innerCharMesh: THREE.Mesh | null = null;
     private innerCharPos = new THREE.Vector3();
     private innerCharVel = new THREE.Vector3();
+    private innerCharRot = new THREE.Euler();
+    private innerCharRotVel = new THREE.Vector3();
 
     spawn(data: MonsterData) {
         console.log(`[MonsterClientLog] Spawn Request Received:`, data);
@@ -94,11 +102,17 @@ class MonsterManager {
         rightEye.position.set(-4, 3, 5);
         group.add(rightEye);
 
-        // 3. 내부 글자 스프라이트
-        this.innerCharMesh = createKoreanLetterSprite();
+        // 3. 내부 글자 메쉬 (3D 판넬)
+        this.innerCharMesh = createKoreanLetterMesh();
         group.add(this.innerCharMesh);
         this.innerCharPos.set(0, 0, 0);
         this.innerCharVel.set(0, 0, 0);
+        this.innerCharRot.set(0, 0, 0);
+        this.innerCharRotVel.set(
+            (Math.random() - 0.5) * 5, 
+            (Math.random() - 0.5) * 5, 
+            (Math.random() - 0.5) * 5
+        );
 
         // 초기 위치 강제 설정 (공중에 떠서 보이기 시작하게)
         group.position.set(data.position.x, 20, data.position.z);
@@ -191,6 +205,15 @@ class MonsterManager {
             }
             
             this.innerCharMesh.position.copy(this.innerCharPos);
+            
+            // 회전 물리 연산 (통통 튈 때마다 글씨가 3D 공간에서 데굴데굴 구르게 함)
+            this.innerCharRotVel.add(this.innerCharVel.clone().multiplyScalar(deltaTime * 3));
+            this.innerCharRotVel.multiplyScalar(0.95); // 회전 댐핑
+            
+            this.innerCharRot.x += this.innerCharRotVel.x * deltaTime;
+            this.innerCharRot.y += this.innerCharRotVel.y * deltaTime;
+            this.innerCharRot.z += this.innerCharRotVel.z * deltaTime;
+            this.innerCharMesh.rotation.copy(this.innerCharRot);
             
             this.previousWorldVel.copy(worldVel);
         }

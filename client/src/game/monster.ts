@@ -8,7 +8,12 @@ export interface MonsterData {
 }
 
 function createKoreanLetterSprite() {
-    const chars = ["가","나","다","라","마","바","사","아","자","차","카","타","파","하","왕","슬","라","임","똥","별","달","돈","힘"];
+    const chars = [
+        "가","나","다","라","마","바","사","아","자","차","카","타","파","하",
+        "거","너","더","러","머","버","서","어","저","처","커","터","퍼","허",
+        "왕","슬","라","임","똥","별","달","돈","힘","꿈","빛","콩","팡","쾅",
+        "퓩","뽕","쓩","앗","잉","헉","얍","읏","멍","냥","꿀","빔","빵","뿅"
+    ];
     const text = chars[Math.floor(Math.random() * chars.length)];
     
     const canvas = document.createElement('canvas');
@@ -164,24 +169,25 @@ class MonsterManager {
             const worldAccel = new THREE.Vector3().subVectors(worldVel, this.previousWorldVel).divideScalar(deltaTime);
             
             // F = m*a (가속도의 반대 방향으로 관성력이 작용)
-            // 약간의 가속 제한을 두어 폭발을 막음
+            // 반응성을 높이기 위해 관성 계수를 약간 올림
             worldAccel.clampLength(0, 1000);
-            const inertiaForce = worldAccel.multiplyScalar(-0.8);
+            const inertiaForce = worldAccel.multiplyScalar(-1.5);
             
             // 스프링 힘 (다시 중앙으로 돌아오려는 성질)
-            const springForce = this.innerCharPos.clone().multiplyScalar(-100);
+            // 힘을 낮춰서 바깥으로 더 멀리 나갈 수 있게 함
+            const springForce = this.innerCharPos.clone().multiplyScalar(-60);
             
-            // 댐핑 반작용 (꿀렁임이 안정되도록)
-            const dampingForce = this.innerCharVel.clone().multiplyScalar(-10);
+            // 댐핑 반작용 (꿀렁임이 더 오래 지속되도록 저항을 낮춤)
+            const dampingForce = this.innerCharVel.clone().multiplyScalar(-3);
             
             const totalForce = new THREE.Vector3().add(inertiaForce).add(springForce).add(dampingForce);
             
             this.innerCharVel.add(totalForce.multiplyScalar(deltaTime));
             this.innerCharPos.add(this.innerCharVel.clone().multiplyScalar(deltaTime));
             
-            // 공 밖으로 튀어나가지 않게 (반경 5 로 제한)
-            if (this.innerCharPos.length() > 5) {
-                this.innerCharPos.setLength(5);
+            // 공 밖으로 너무 튀어나가지 않게 (반경 6.5 로 여유범위 확대, 슬라임 크기는 8)
+            if (this.innerCharPos.length() > 6.5) {
+                this.innerCharPos.setLength(6.5);
             }
             
             this.innerCharMesh.position.copy(this.innerCharPos);

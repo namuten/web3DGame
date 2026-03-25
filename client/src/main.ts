@@ -61,7 +61,7 @@ const animate = () => {
   updateBullets(deltaTime);
   updateChatBubbles(deltaTime);
   updateWorld(time);
-  monsterManager.animate(time, deltaTime);
+  monsterManager.animate(time, deltaTime, camera);
   broadcastLocalPosition();
   renderer.render(scene, camera);
 };

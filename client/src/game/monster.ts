@@ -170,7 +170,7 @@ class MonsterManager {
         this.targetScale = scale;
     }
 
-    animate(time: number, deltaTime: number = 0.016) {
+    animate(time: number, deltaTime: number = 0.016, camera?: THREE.Camera) {
         if (!this.monsterMesh) return;
 
         // 1. 플래시 효과 (피격 시 빨간색)
@@ -325,10 +325,24 @@ class MonsterManager {
                 // 꾸준히 회전을 늦추어 바닥에 안착하면 자연스레 멈추게 함
                 char.rotVel.multiplyScalar(this.isMoving ? 0.92 : 0.85);
 
-                char.rot.x += char.rotVel.x * deltaTime;
-                char.rot.y += char.rotVel.y * deltaTime;
-                char.rot.z += char.rotVel.z * deltaTime;
-                char.mesh.rotation.copy(char.rot);
+                if (!this.isMoving && camera) {
+                    // 정지 상태: 카메라를 향해 서서히 회전 (billboarding)
+                    const worldPos = new THREE.Vector3();
+                    char.mesh.getWorldPosition(worldPos);
+                    const dir = camera.position.clone().sub(worldPos);
+
+                    const dummy = new THREE.Object3D();
+                    dummy.lookAt(dir);
+                    char.mesh.quaternion.slerp(dummy.quaternion, 0.1);
+                    // char.rot을 현재 quaternion과 동기화해 상태 전환 시 튀지 않게
+                    char.rot.setFromQuaternion(char.mesh.quaternion);
+                } else {
+                    // 이동 상태: 자유 회전
+                    char.rot.x += char.rotVel.x * deltaTime;
+                    char.rot.y += char.rotVel.y * deltaTime;
+                    char.rot.z += char.rotVel.z * deltaTime;
+                    char.mesh.rotation.copy(char.rot);
+                }
             }
             
             this.previousWorldVel.copy(worldVel);

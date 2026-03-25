@@ -17,8 +17,6 @@ export interface MonsterData {
 }
 
 function createKoreanLetterMesh(char: string) {
-    const text = char;
-    
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
@@ -33,11 +31,11 @@ function createKoreanLetterMesh(char: string) {
     // Draw outline
     ctx.lineWidth = 10;
     ctx.strokeStyle = '#222222';
-    ctx.strokeText(text, 64, 64);
+    ctx.strokeText(char, 64, 64);
     
     // Draw text
     ctx.fillStyle = '#FFD700'; // Gold
-    ctx.fillText(text, 64, 64);
+    ctx.fillText(char, 64, 64);
     
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;

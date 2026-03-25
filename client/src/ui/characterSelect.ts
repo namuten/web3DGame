@@ -141,6 +141,16 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
           selectedChar = char;
           updateStartBtn();
         });
+        card.addEventListener('dblclick', () => {
+          if (!startBtn.disabled) {
+            startBtn.click();
+          } else {
+            const nameInput = overlay.querySelector('#name-input') as HTMLInputElement;
+            if (!nameInput.value.trim().length) {
+              nameInput.focus();
+            }
+          }
+        });
         cardsEl.appendChild(card);
       }
     }

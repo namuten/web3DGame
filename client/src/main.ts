@@ -75,6 +75,7 @@ const animate = () => {
   updateFloatingTexts(deltaTime);
   updateWorld(time);
   monsterManager.animate(time, deltaTime, camera);
+  parrotManager.update(deltaTime, playerMesh.position);
   broadcastLocalPosition();
   renderer.render(scene, camera);
 };

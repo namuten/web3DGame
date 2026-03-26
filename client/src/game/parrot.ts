@@ -82,12 +82,96 @@ class ParrotManager {
     });
   }
 
-  update(_dt: number, _playerPos: THREE.Vector3): void {
-    // Task 3~4에서 구현
+  update(dt: number, playerPos: THREE.Vector3): void {
+    for (const parrot of this.parrots) {
+      const dist = parrot.mesh.position.distanceTo(playerPos);
+
+      // ── 상태 전환 ──────────────────────────────────────
+      if (!parrot.isFriendly) {
+        if (dist < FRIENDLY_DIST) {
+          parrot.state = 'FRIENDLY';
+          parrot.isFriendly = true;
+        } else if (parrot.state === 'WANDER') {
+          if (dist < ATTACK_DIST) {
+            parrot.state = 'ATTACK';
+          } else if (dist < FLEE_DIST) {
+            parrot.state = 'FLEE';
+          }
+        } else if (parrot.state === 'FLEE' && dist > FLEE_RETURN_DIST) {
+          parrot.state = 'WANDER';
+          this.pickWanderTarget(parrot);
+        } else if (parrot.state === 'ATTACK' && dist > ATTACK_RETURN_DIST) {
+          parrot.state = 'WANDER';
+          this.pickWanderTarget(parrot);
+        }
+      }
+
+      // ── 상태별 이동 ────────────────────────────────────
+      if (parrot.state === 'WANDER') {
+        this.updateWander(parrot, dt);
+      } else if (parrot.state === 'FLEE') {
+        this.updateFlee(parrot, playerPos, dt);
+      } else if (parrot.state === 'ATTACK') {
+        this.updateAttack(parrot, playerPos, dt);
+      } else if (parrot.state === 'FRIENDLY') {
+        this.updateFriendly(parrot, playerPos, dt);
+      }
+    }
   }
 
   private pickWanderTarget(parrot: ParrotInstance): void {
-    // Task 3에서 구현
+    const cx = parrot.mesh.position.x;
+    const cz = parrot.mesh.position.z;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 5 + Math.random() * WANDER_RADIUS;
+    const tx = cx + Math.cos(angle) * dist;
+    const tz = cz + Math.sin(angle) * dist;
+    const ty = getGroundHeight(tx, tz);
+    parrot.targetPos.set(tx, ty, tz);
+    parrot.wanderTimer = 0; // 이동 시작
+  }
+
+  private updateWander(parrot: ParrotInstance, dt: number): void {
+    if (parrot.wanderTimer > 0) {
+      // 대기 중
+      parrot.wanderTimer -= dt;
+      if (parrot.wanderTimer <= 0) {
+        this.pickWanderTarget(parrot);
+      }
+      return;
+    }
+
+    const toTarget = parrot.targetPos.clone().sub(parrot.mesh.position);
+    const horizDist = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
+
+    if (horizDist < ARRIVE_DIST) {
+      // 목표 도착 → 대기 타이머 설정
+      parrot.wanderTimer = WANDER_WAIT_MIN + Math.random() * (WANDER_WAIT_MAX - WANDER_WAIT_MIN);
+      return;
+    }
+
+    // 수평 방향으로만 이동 (지면 위 걷기)
+    const dir = new THREE.Vector3(toTarget.x, 0, toTarget.z).normalize();
+    parrot.mesh.position.x += dir.x * SPEED_WANDER * dt;
+    parrot.mesh.position.z += dir.z * SPEED_WANDER * dt;
+    // 지면 높이 추적
+    parrot.mesh.position.y = getGroundHeight(parrot.mesh.position.x, parrot.mesh.position.z);
+
+    // 진행 방향을 바라봄
+    const lookTarget = parrot.mesh.position.clone().add(dir);
+    parrot.mesh.lookAt(lookTarget);
+  }
+
+  private updateFlee(_parrot: ParrotInstance, _playerPos: THREE.Vector3, _dt: number): void {
+    // Task 4에서 구현
+  }
+
+  private updateAttack(_parrot: ParrotInstance, _playerPos: THREE.Vector3, _dt: number): void {
+    // Task 4에서 구현
+  }
+
+  private updateFriendly(_parrot: ParrotInstance, _playerPos: THREE.Vector3, _dt: number): void {
+    // Task 4에서 구현
   }
 }
 

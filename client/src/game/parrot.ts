@@ -41,7 +41,45 @@ class ParrotManager {
   private parrots: ParrotInstance[] = [];
 
   async load(): Promise<void> {
-    // Task 2에서 구현
+    return new Promise((resolve, reject) => {
+      const loader = new GLTFLoader();
+      loader.load(
+        MODEL_PATH,
+        (gltf) => {
+          // 두 마리 배치 — 맵 중심 근처 랜덤 위치
+          const offsets = [
+            new THREE.Vector3(10 + Math.random() * 10, 0, 10 + Math.random() * 10),
+            new THREE.Vector3(-10 - Math.random() * 10, 0, -10 - Math.random() * 10),
+          ];
+
+          for (const offset of offsets) {
+            const mesh = gltf.scene.clone(true) as THREE.Group;
+            mesh.scale.set(1, 1, 1); // 크기는 게임에서 확인 후 조정
+            const gx = offset.x;
+            const gz = offset.z;
+            const gy = getGroundHeight(gx, gz);
+            mesh.position.set(gx, gy, gz);
+            scene.add(mesh);
+
+            this.parrots.push({
+              mesh,
+              state: 'WANDER',
+              targetPos: new THREE.Vector3(gx, gy, gz),
+              wanderTimer: 0,
+              isFriendly: false,
+              orbitAngle: Math.random() * Math.PI * 2,
+              bubbleShown: false,
+            });
+          }
+          resolve();
+        },
+        undefined,
+        (err) => {
+          console.error('[Parrot] GLB 로드 실패:', err);
+          reject(err);
+        }
+      );
+    });
   }
 
   update(_dt: number, _playerPos: THREE.Vector3): void {

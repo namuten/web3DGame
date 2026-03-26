@@ -31,6 +31,7 @@ import {
 import { showChatBubble, updateChatBubbles } from './game/chatBubble';
 import { monsterManager } from './game/monster';
 import { updateFloatingTexts } from './game/floatingText';
+import { parrotManager } from './game/parrot';
 
 // 화면에 렌더러 등록
 mountRenderer('app');
@@ -105,6 +106,7 @@ showCharacterSelect().then((selection) => {
       // 5. 맵 초기화
       clearParty(); // 클리어 파티
       initWorld(config);
+      parrotManager.load().catch((e) => console.error('[Parrot] load error:', e));
 
       // 캐릭터 시작 위치 랜덤화 (로컬에서 즉시 반영)
       const pZone = config.playZone || 80;

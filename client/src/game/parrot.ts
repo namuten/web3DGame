@@ -54,16 +54,25 @@ class ParrotManager {
           ];
 
           for (const offset of offsets) {
-            const mesh = gltf.scene.clone(true) as THREE.Group;
-            mesh.scale.set(1, 1, 1); // 크기는 게임에서 확인 후 조정
+            // 실제 GLB 메시 — 스케일과 로컬 방향 보정용
+            const model = gltf.scene.clone(true) as THREE.Group;
+            // 모델 크기 설정 — 너무 크거나 작으면 이 값을 조정
+            model.scale.set(1, 1, 1);
+            // 모델 앞 방향 보정 — lookAt()이 뒤를 향하면 Math.PI, 옆을 향하면 Math.PI/2
+            model.rotation.y = 0;
+
+            // 피벗 그룹 — 위치/회전 제어용
+            const pivot = new THREE.Group();
+            pivot.add(model);
+
             const gx = offset.x;
             const gz = offset.z;
             const gy = getGroundHeight(gx, gz);
-            mesh.position.set(gx, gy, gz);
-            scene.add(mesh);
+            pivot.position.set(gx, gy, gz);
+            scene.add(pivot);
 
             this.parrots.push({
-              mesh,
+              mesh: pivot,  // pivot을 mesh로 사용
               state: 'WANDER',
               targetPos: new THREE.Vector3(gx, gy, gz),
               wanderTimer: 0,

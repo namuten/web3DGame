@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { scene } from '../engine/scene';
 import { playerMesh, cameraPhi, cameraTheta, PHI_MAX, getLocalBodyColor } from './player';
 import { otherPlayers } from '../network/players';
-import { socket } from '../network/socket';
 import { monsterManager } from './monster';
+import { showDamageText } from './floatingText';
 
 // ─── 탄환 데이터 구조 ─────────────────────────────────────────
 interface Bullet {
@@ -12,11 +12,12 @@ interface Bullet {
   velocity: THREE.Vector3;
   lifeTime: number;
   ownerId: string;
+  strength: number; // 발사 시의 힘 (0.0 ~ 1.0)
 }
 
-const BULLET_SPEED = 25;
-const BULLET_LIFETIME = 3.0;
-const BULLET_GRAVITY = -9.8; // 탄환 낙하 가속도
+const BULLET_SPEED = 18; // 탄속 하향 (포물선 강조)
+const BULLET_LIFETIME = 5.0; // 수명 연장
+const BULLET_GRAVITY = -15.0; // 중력 강화 (돌 던지는 느낌 부여)
 
 // 원격 플레이어 색상 저장
 const remotePlayerColors: Record<string, number> = {};
@@ -31,7 +32,7 @@ interface Particle { mesh: THREE.Mesh; vel: THREE.Vector3; life: number; }
 const particles: Particle[] = [];
 
 // ─── 탄환 생성 함수 ──────────────────────────────────────────
-const createBullet = (origin: THREE.Vector3, direction: THREE.Vector3, ownerId: string): Bullet => {
+const createBullet = (origin: THREE.Vector3, direction: THREE.Vector3, ownerId: string, strength: number = 0.5): Bullet => {
   const color = ownerId === 'local' ? getLocalBodyColor() : (remotePlayerColors[ownerId] ?? 0xff4444);
   
   // 구체 메시 (크기 0.5로 키움)
@@ -56,56 +57,70 @@ const createBullet = (origin: THREE.Vector3, direction: THREE.Vector3, ownerId: 
     light,
     velocity: direction.clone().normalize().multiplyScalar(BULLET_SPEED),
     lifeTime: BULLET_LIFETIME,
-    ownerId
+    ownerId,
+    strength
   };
 
   bullets.push(bullet);
-  console.log(`[Bullet] Created for ${ownerId}. Active total: ${bullets.length}`);
+  console.log(`[Bullet] Created for ${ownerId} with strength ${strength.toFixed(2)}. Active total: ${bullets.length}`);
   return bullet;
 };
 
+// ─── 로컬 플레이어 발사 ──────────────────────────────────────
 // ─── 로컬 플레이어 발사 ──────────────────────────────────────
 let _shootCallback: ((origin: THREE.Vector3, direction: THREE.Vector3) => void) | null = null;
 export const setShootCallback = (cb: (origin: THREE.Vector3, direction: THREE.Vector3) => void) => {
   _shootCallback = cb;
 };
 
-export const fireBullet = () => {
-  // 한 번에 한 발만 조절
-  if (bullets.some(b => b.ownerId === 'local')) {
-    console.warn('[Bullet] Already has a local bullet in flight.');
+let _damageCallback: ((targetId: string, damage: number, direction: THREE.Vector3) => void) | null = null;
+export const setDamageCallback = (cb: (targetId: string, damage: number, direction: THREE.Vector3) => void) => {
+  _damageCallback = cb;
+};
+
+export const fireBullet = (strength: number = 0.5) => {
+  // 사용자의 요청: 발사된 탄환이 없어져야 새로 발사 가능
+  const hasLocalBullet = bullets.some(b => b.ownerId === 'local');
+  if (hasLocalBullet) {
+    console.log("[Bullet] Previous bullet still active. Wait until it disappears.");
     return;
   }
 
-  // 발사 방향 계산 (카메라 시선 방향 반영)
-  // cameraPhi가 작을수록 위에서 아래를 보는 것이므로, 아래로 더 많이 꺾어야 함
-  // PHI_MAX일 때(약 81도) 거의 수평, PHI_MIN일 때(약 5도) 거의 수직 하강
-  const verticalAngle = (cameraPhi / PHI_MAX) - 1.1;
+  // 발사 방향 계산: 곡사(Lob) 보정을 위해 위쪽 벡터 가산
+  // 60도 정도의 고각 발사를 위해 lobBoost를 Math.tan(60 * Math.PI / 180) ≈ 1.732로 설정
+  const lobBoost = 1.732;
+  const verticalAngle = (cameraPhi / PHI_MAX) - 1.0 + lobBoost;
 
   const fwdX = -Math.sin(cameraTheta);
   const fwdZ = -Math.cos(cameraTheta);
   const dir = new THREE.Vector3(fwdX, verticalAngle, fwdZ).normalize();
 
-  const tiltFactor = (cameraPhi / PHI_MAX) * 1.5;
-  const topZ = 0.3 * tiltFactor;
-  const topY = 1.6 + 0.8;
-
+  // 발사 원점 (캐릭터 머리 위 꽃봉오리 위치)
   const origin = playerMesh.position.clone().add(
-    new THREE.Vector3(fwdX * topZ, topY, fwdZ * topZ)
+    new THREE.Vector3(fwdX * 0.5, 2.8, fwdZ * 0.5)
   );
 
-  createBullet(origin, dir, 'local');
+  // 힘(strength)에 비례하여 속도 조절 (최소 8 ~ 최대 35)
+  const finalSpeed = 8 + strength * 27;
+  
+  const bullet = createBullet(origin, dir, 'local', strength);
+  bullet.velocity.copy(dir).multiplyScalar(finalSpeed);
 
   if (_shootCallback) {
     _shootCallback(origin, dir);
   }
 };
 
-// ─── 원격 플레이어 발사 ──────────────────────────────────────
-export const addRemoteBullet = (origin: any, direction: any, id: string) => {
+// ─── 원격 플레이어 탄환 추가 (strength 포함 고안) ─────────────────
+export const addRemoteBullet = (origin: any, direction: any, id: string, strength: number = 0.5) => {
   const o = new THREE.Vector3(origin.x, origin.y, origin.z);
   const d = new THREE.Vector3(direction.x, direction.y, direction.z);
-  createBullet(o, d, id);
+  
+  // 원격 플레이어가 보낸 방향과 힘을 그대로 적용
+  const b = createBullet(o, d, id, strength);
+  // 속도 재계계 (원격 탄환도 초기 속도 로직이 필요할 수 있음. 여기서는 넘겨받은 d가 정규화된 방향이라고 가정)
+  const remoteSpeed = 8 + strength * 27;
+  b.velocity.copy(d).normalize().multiplyScalar(remoteSpeed);
 };
 
 // ─── 충돌 판정 ──────────────────────────────────────────────
@@ -172,13 +187,19 @@ export const updateBullets = (deltaTime: number) => {
           current = current.parent;
         }
 
-        if (targetId) {
-          socket.emit('TAKE_DAMAGE', {
-            targetId: targetId,
-            damage: 15,
-            shooterId: socket.id,
-            direction: b.velocity.clone().normalize()
-          });
+        if (targetId && _damageCallback) {
+          // 기본 대미지 10 + 충전 위력에 따른 추가 대미지 (최대 40)
+          const damageValue = Math.round(10 + b.strength * 30);
+          _damageCallback(targetId, damageValue, b.velocity.clone().normalize());
+          
+          // 대상의 스케일에 맞춰 텍스트 높이 조절
+          let offsetY = 3.5;
+          if (hitObj.userData && hitObj.userData.isMonster) {
+            // 몬스터의 경우 현재 스케일에 비례하여 높이 조정 (기본 크기가 크므로 스케일 적용)
+            offsetY = 1.0 + (monsterManager as any).currentScale * 6.0;
+          }
+          
+          showDamageText(intersects[0].point, damageValue, '#ff3300', offsetY);
         }
       }
       hitOccurred = true;
@@ -202,14 +223,18 @@ export const updateBullets = (deltaTime: number) => {
         }
       }
 
-      if (hitId) {
+      if (hitId && _damageCallback) {
         spawnImpact(endPos);
-        socket.emit('TAKE_DAMAGE', {
-          targetId: hitId,
-          damage: 15,
-          shooterId: socket.id,
-          direction: b.velocity.clone().normalize()
-        });
+        const damageValue = Math.round(10 + b.strength * 30);
+        _damageCallback(hitId, damageValue, b.velocity.clone().normalize());
+        
+        // 대상이 몬스터인지 확인하여 높이 조절
+        let offsetY = 3.5;
+        if (hitId === 'boss_slime' || hitId.startsWith('monster')) {
+            offsetY = 1.0 + (monsterManager as any).currentScale * 6.0;
+        }
+        
+        showDamageText(endPos, damageValue, '#ff3300', offsetY);
         hitOccurred = true;
       }
     }
@@ -263,15 +288,5 @@ const updateParticles = (dt: number) => {
 
 // ─── 입력 바인딩 ─────────────────────────────────────────────
 export const initBulletInput = () => {
-  window.addEventListener('mousedown', (e) => {
-    if (e.button === 0 && document.activeElement?.tagName !== 'INPUT') {
-      fireBullet();
-    }
-  });
-
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyF' && document.activeElement?.tagName !== 'INPUT') {
-      fireBullet();
-    }
-  });
+  // 입력 리스너는 player.ts로 통합됨
 };

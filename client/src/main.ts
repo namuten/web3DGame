@@ -13,6 +13,7 @@ import {
   joinMap,
   onMapConfig,
   onMapPlayers,
+  socket,
 } from './network/socket';
 import { initHUD } from './ui/hud';
 import { initPartyUI, clearParty } from './ui/partyUI';
@@ -25,9 +26,11 @@ import {
   updateBullets,
   registerCollidables,
   setShootCallback,
+  setDamageCallback,
 } from './game/bullets';
 import { showChatBubble, updateChatBubbles } from './game/chatBubble';
 import { monsterManager } from './game/monster';
+import { updateFloatingTexts } from './game/floatingText';
 
 // 화면에 렌더러 등록
 mountRenderer('app');
@@ -50,6 +53,14 @@ initBulletInput();
 setShootCallback((origin: THREE.Vector3, direction: THREE.Vector3) => {
   sendShoot(origin, direction);
 });
+setDamageCallback((targetId: string, damage: number, direction: THREE.Vector3) => {
+  socket.emit('TAKE_DAMAGE', {
+    targetId: targetId,
+    damage: damage,
+    shooterId: socket.id,
+    direction: direction
+  });
+});
 
 const clock = new THREE.Clock();
 
@@ -60,6 +71,7 @@ const animate = () => {
   updatePlayer(deltaTime);
   updateBullets(deltaTime);
   updateChatBubbles(deltaTime);
+  updateFloatingTexts(deltaTime);
   updateWorld(time);
   monsterManager.animate(time, deltaTime, camera);
   broadcastLocalPosition();

@@ -5,7 +5,7 @@ import * as THREE from 'three';
  */
 export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: number = bodyColor, flowerType: string = 'daisy', visorType: string = 'normal') => {
   const root = new THREE.Group();
-  
+
   const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.1, metalness: 0 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0 });
 
@@ -53,7 +53,7 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
   });
 
   // ─── 헬퍼 메서드 ─────────────────────────────
-  
+
   // 몸체 색상 변경
   (root as any).setBodyColor = (newColor: number) => {
     const newMat = new THREE.MeshStandardMaterial({ color: newColor, roughness: 0.1, metalness: 0 });
@@ -107,11 +107,21 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
     if ((flower as any).updateTilt) (flower as any).updateTilt(tiltFactor);
   };
 
+  // 발사 애니메이션 트리거 (투석기 효과)
+  (root as any).triggerShoot = (strength: number = 0.5) => {
+    if ((flower as any).triggerShoot) (flower as any).triggerShoot(strength);
+  };
+
+  // 기 모으기 수치 반영 (0~1)
+  (root as any).setChargeAmount = (val: number) => {
+    if ((flower as any).setChargeAmount) (flower as any).setChargeAmount(val);
+  };
+
   // 이름표 부착 (상체에 귀속시켜 상체 회전 시 같이 움직이게 함)
   (root as any).addNameTag = (tag: THREE.Object3D) => {
     // tag의 arc는 내부적으로 y=1.8 등에 위치하므로 그대로 추가
     // 단, upperBody가 y=1.0에 있으므로 상대 좌표 보정 필요
-    tag.position.y -= 1.0; 
+    tag.position.y -= 1.0;
     upperBody.add(tag);
   };
 
@@ -124,11 +134,10 @@ export const createCharacterModel = (bodyColor: number = 0xffb7b2, flowerColor: 
 function createFlowerModel(flowerColor: number, flowerType: string = 'daisy') {
   const flowerGroup = new THREE.Group();
   const stemSegments: THREE.Mesh[] = [];
-
   const stemPointCount = 8;
-  const stemHeight = 0.8;
+  const stemHeight = 1.2; // 줄기 길이 2배
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
-  
+
   for (let i = 0; i < stemPointCount; i++) {
     const t = i / (stemPointCount - 1);
     const segment = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, stemHeight / stemPointCount), stemMat);
@@ -148,104 +157,146 @@ function createFlowerModel(flowerColor: number, flowerType: string = 'daisy') {
   flowerHead.rotation.x = 0.4;
   flowerGroup.add(flowerHead);
 
-  const center = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({ color: 0xffcc00 }));
+  const center = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffcc00 }));
   const createPetalMat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0 });
   const initialPetalMat = createPetalMat(flowerColor);
-
   let petalMeshes: THREE.Mesh[] = [];
 
   if (flowerType === 'rose') {
     center.material = new THREE.MeshStandardMaterial({ color: 0x880000 });
-    center.scale.set(0.6, 0.4, 0.6);
+    center.scale.set(1.25, 0.75, 1.25);
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    petalGeo.scale(1, 1.5, 0.2);
+    const petalGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    petalGeo.scale(1.25, 1.75, 0.3);
     for (let i = 0; i < 18; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
-      const angle = (i / 18) * Math.PI * 2 * 2; // spiral
-      const radius = 0.03 + (i * 0.003);
-      petal.position.set(Math.cos(angle) * radius, i * 0.004, Math.sin(angle) * radius);
-      petal.rotation.y = -angle + Math.PI/2;
+      const angle = (i / 18) * Math.PI * 2 * 2;
+      const radius = 0.075 + (i * 0.0075);
+      petal.position.set(Math.cos(angle) * radius, i * 0.01, Math.sin(angle) * radius);
+      petal.rotation.y = -angle + Math.PI / 2;
       petal.rotation.x = -0.1 - (i * 0.02);
       flowerHead.add(petal);
       petalMeshes.push(petal);
     }
   } else if (flowerType === 'tulip') {
-    center.visible = false; // 튤립은 수술을 가림
+    center.visible = false;
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    petalGeo.scale(0.8, 2.0, 0.2);
+    const petalGeo = new THREE.SphereGeometry(0.1, 8, 8);
+    petalGeo.scale(1.1, 2.75, 0.3);
     for (let i = 0; i < 6; i++) {
-        const petal = new THREE.Mesh(petalGeo, initialPetalMat);
-        const angle = (i / 6) * Math.PI * 2;
-        petal.position.set(Math.cos(angle) * 0.04, 0.08, Math.sin(angle) * 0.04);
-        petal.rotation.y = -angle + Math.PI/2;
-        petal.rotation.x = 0.15;
-        flowerHead.add(petal);
-        petalMeshes.push(petal);
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 6) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.1, 0.15, Math.sin(angle) * 0.1);
+      petal.rotation.y = -angle + Math.PI / 2;
+      petal.rotation.x = 0.15;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
     }
   } else if (flowerType === 'sunflower') {
-    center.geometry = new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16) as any;
+    center.geometry = new THREE.CylinderGeometry(0.18, 0.18, 0.03, 16) as any;
     center.material = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
-    center.rotation.x = Math.PI/2;
+    center.rotation.x = Math.PI / 2;
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.02, 8, 8);
-    petalGeo.scale(1.5, 0.2, 3);
+    const petalGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    petalGeo.scale(1.75, 0.3, 4.75);
     for (let i = 0; i < 24; i++) {
-        const petal = new THREE.Mesh(petalGeo, initialPetalMat);
-        const angle = (i / 24) * Math.PI * 2;
-        petal.position.set(Math.cos(angle) * 0.16, 0, Math.sin(angle) * 0.16);
-        petal.rotation.y = -angle;
-        flowerHead.add(petal);
-        petalMeshes.push(petal);
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 24) * Math.PI * 2;
+      const radius = 0.225;
+      petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+      petal.rotation.y = -angle;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
     }
   } else if (flowerType === 'clover') {
     center.visible = false;
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.06, 8, 8);
-    petalGeo.scale(1, 0.2, 1);
+    const petalGeo = new THREE.SphereGeometry(0.12, 8, 8);
+    petalGeo.scale(1.6, 0.25, 1.6);
     for (let i = 0; i < 4; i++) {
-        const petal = new THREE.Mesh(petalGeo, initialPetalMat);
-        const angle = (i / 4) * Math.PI * 2;
-        petal.position.set(Math.cos(angle) * 0.08, 0, Math.sin(angle) * 0.08);
-        flowerHead.add(petal);
-        petalMeshes.push(petal);
+      const petal = new THREE.Mesh(petalGeo, initialPetalMat);
+      const angle = (i / 4) * Math.PI * 2;
+      petal.position.set(Math.cos(angle) * 0.175, 0, Math.sin(angle) * 0.175);
+      petal.rotation.y = -angle;
+      flowerHead.add(petal);
+      petalMeshes.push(petal);
     }
   } else {
-    // Daisy (기본)
-    center.scale.set(1, 0.6, 1);
+    // Daisy (default)
+    center.scale.set(1.5, 0.6, 1.5);
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.03, 8, 8);
-    petalGeo.scale(1.5, 0.2, 5);
+    const petalGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    petalGeo.scale(1.75, 0.2, 6.75);
     for (let i = 0; i < 18; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
       const angle = (i / 18) * Math.PI * 2;
-      petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+      const radius = 0.275;
+      petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
       petal.rotation.y = -angle;
-      petal.rotation.z = 0.1;
+      petal.rotation.z = 0.15;
       flowerHead.add(petal);
       petalMeshes.push(petal);
     }
   }
 
-  // 물리 기반 꽃 움직임 (forward: 앞뒤 기울기, side: 좌우 기울기)
-  (flowerGroup as any).updateFlowerPhysics = (forward: number, side: number) => {
+  let shootTimer = 0;
+  let currentStrength = 0;
+  let chargeAmount = 0;
+  const SHOOT_DURATION = 0.5;
+
+  (flowerGroup as any).triggerShoot = (strength: number = 0.5) => {
+    shootTimer = SHOOT_DURATION;
+    currentStrength = strength;
+  };
+
+  (flowerGroup as any).setChargeAmount = (val: number) => {
+    chargeAmount = val;
+  };
+
+  // 물리 기반 꽃 움직임
+  (flowerGroup as any).updateFlowerPhysics = (forward: number, side: number, dt: number = 0.016) => {
     const tiltBase = 0.4;
+    
+    let shootOffset = 0;
+    if (shootTimer > 0) {
+      shootTimer -= dt;
+      const progress = 1.0 - (shootTimer / SHOOT_DURATION);
+      
+      if (progress < 0.2) {
+        // 이미 기를 모은 상태에서 뒤로 더 휘어지게 (반동)
+        shootOffset = -chargeAmount * 1.5 - (progress / 0.2) * 0.5;
+      } else if (progress < 0.4) {
+        // Snap forward (기 모은 만큼 세게)
+        const p2 = (progress - 0.2) / 0.2;
+        const snapMax = 1.0 + currentStrength * 2.5; 
+        shootOffset = -chargeAmount * 2.0 + p2 * (snapMax + chargeAmount * 2.0);
+      } else {
+        // Recovery
+        const p3 = (progress - 0.4) / 0.6;
+        shootOffset = (1.0 + currentStrength * 2.5) * (1.0 - p3);
+      }
+    } else {
+      // 충전 중일 때는 뒤로 휘어짐
+      shootOffset = -chargeAmount * 2.2;
+    }
+
+    const totalFwd = forward + shootOffset;
+
     stemSegments.forEach((seg, i) => {
       const t = i / (stemSegments.length - 1);
       const curve = Math.pow(t, 2);
-      seg.position.z = curve * forward * 1.1;
+      seg.position.z = curve * totalFwd * 1.1;
       seg.position.x = curve * side * 1.1;
-      seg.rotation.x = t * forward * 1.8;
+      seg.rotation.x = t * totalFwd * 1.8;
       seg.rotation.z = -t * side * 1.8;
     });
-    flowerHead.position.set(side * 1.1, stemHeight, forward * 1.1);
-    flowerHead.rotation.x = tiltBase + forward * 2.2;
+    flowerHead.position.set(side * 1.1, stemHeight, totalFwd * 1.1);
+    flowerHead.rotation.x = tiltBase + totalFwd * 2.2;
     flowerHead.rotation.z = -side * 2.2;
   };
 
   (flowerGroup as any).updateTilt = (tiltFactor: number) => {
-    (flowerGroup as any).updateFlowerPhysics(tiltFactor * 0.3, 0);
+    (flowerGroup as any).updateFlowerPhysics(tiltFactor * 0.3, 0, 0); // Tilt는 정적
   };
 
   (flowerGroup as any).setPetalColor = (newColor: number) => {
@@ -285,29 +336,29 @@ function createVisorModel(visorColor: number, visorType: string = 'normal') {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: visorColor, roughness: 0.2, metalness: 0.1 });
   const extrudeSettings = { depth: 0.05, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
-  
+
   if (visorType === 'glasses') {
     const lensL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
     lensL.rotation.x = Math.PI / 2;
     lensL.position.set(-0.2, 0, 0);
     group.add(lensL);
-    
+
     const lensR = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
     lensR.rotation.x = Math.PI / 2;
     lensR.position.set(0.2, 0, 0);
     group.add(lensR);
-    
+
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
     group.add(bridge);
   } else if (visorType === 'sunglasses') {
     const lensL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.05), mat);
     lensL.position.set(-0.19, 0, 0);
     group.add(lensL);
-    
+
     const lensR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.05), mat);
     lensR.position.set(0.19, 0, 0);
     group.add(lensR);
-    
+
     const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 0.02), mat);
     group.add(bridge);
   } else if (visorType === 'star') {
@@ -350,6 +401,6 @@ function createVisorModel(visorColor: number, visorType: string = 'normal') {
   (group as any).setVisorColor = (color: number) => {
     mat.color.setHex(color);
   };
-  
+
   return group;
 }

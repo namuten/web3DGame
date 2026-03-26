@@ -6,6 +6,7 @@ import { otherPlayers } from '../network/players';
 import { updatePartyMemberHP } from '../ui/partyUI';
 
 import { createCharacterModel } from './characterModel';
+import { fireBullet } from './bullets';
 
 // ─── 플레이어 메시 초기 세팅 (2톤 세라믹 캡슐 + 데이지 꽃) ──────────
 export const playerMesh = new THREE.Group();
@@ -112,6 +113,11 @@ let modelScaleYVel = 0;
 const RECOIL_K = 220;  // 반동 탄성
 const RECOIL_D = 12;   // 반동 감쇠
 
+// 기 모으기 (Charge) 상태
+let isCharging = false;
+let chargeAmount = 0;
+const MAX_CHARGE_TIME = 1.2; // 1.2초면 풀강
+
 // ─── 이동 속도 ────────────────────────────────────────────────
 const BASE_SPEED = 12;
 const playerVelocity = new THREE.Vector3();
@@ -202,7 +208,6 @@ export const initPlayer = () => {
 
   // 키 이벤트 등록
   window.addEventListener('keydown', (e) => {
-    // 채팅 중엔 게임 조작 무시
     if (document.activeElement?.tagName === 'INPUT') return;
 
     if (e.code === 'KeyW') keys.w = true;
@@ -214,14 +219,14 @@ export const initPlayer = () => {
     if (e.code === 'ArrowUp') keys.arrowUp = true;
     if (e.code === 'ArrowDown') keys.arrowDown = true;
 
-    // 점프 (HP가 0이면 불가)
     if (hp > 0 && e.code === 'Space' && isOnGround) {
       verticalVelocity = JUMP_FORCE;
       isOnGround = false;
-      // 점프 시 순간적으로 위로 늘어남
       modelScaleYVel = 1.5;
-      e.preventDefault(); // 스크롤 방지
+      e.preventDefault();
     }
+
+    if (e.code === 'KeyF') startCharge();
   });
 
   window.addEventListener('keyup', (e) => {
@@ -233,6 +238,34 @@ export const initPlayer = () => {
     if (e.code === 'ArrowRight') keys.arrowRight = false;
     if (e.code === 'ArrowUp') keys.arrowUp = false;
     if (e.code === 'ArrowDown') keys.arrowDown = false;
+
+    if (e.code === 'KeyF') releaseCharge();
+  });
+
+  // 기 모으기 관련 함수
+  const startCharge = () => {
+    if (hp > 0) isCharging = true;
+  };
+  const releaseCharge = () => {
+    if (isCharging) {
+      isCharging = false;
+      const strength = Math.min(chargeAmount, 1.0);
+      fireBullet(strength);
+      if ((characterModel as any).triggerShoot) {
+        (characterModel as any).triggerShoot(strength);
+      }
+      chargeAmount = 0;
+      if ((characterModel as any).setChargeAmount) {
+          (characterModel as any).setChargeAmount(0);
+      }
+    }
+  };
+
+  window.addEventListener('mousedown', (e) => {
+    if (e.button === 0 && document.activeElement?.tagName !== 'INPUT') startCharge();
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (e.button === 0) releaseCharge();
   });
 };
 
@@ -440,7 +473,7 @@ export const updatePlayer = (deltaTime: number) => {
   flowerSpringSide += flowerSpringSideVel * deltaTime;
 
   if ((characterModel as any).updateFlowerPhysics) {
-    (characterModel as any).updateFlowerPhysics(flowerSpringFwd, flowerSpringSide);
+    (characterModel as any).updateFlowerPhysics(flowerSpringFwd, flowerSpringSide, deltaTime);
   }
 
   // -- 모델 반동 물리 업데이트 (Scale Y) --
@@ -452,6 +485,15 @@ export const updatePlayer = (deltaTime: number) => {
     // 바닥에 붙어 있도록 offsetY 조정 (1.0 - scaleY) * 모델높이/2
     const offsetY = (1.0 - modelScaleY) * 0.75; 
     (characterModel as any).setVisualEffects(modelScaleY, offsetY);
+  }
+
+  // 기 모으기 업데이트
+  if (isCharging) {
+    chargeAmount += deltaTime / MAX_CHARGE_TIME;
+    if (chargeAmount > 1.0) chargeAmount = 1.0;
+    if ((characterModel as any).setChargeAmount) {
+      (characterModel as any).setChargeAmount(chargeAmount);
+    }
   }
 
   // 카메라가 바라보는 방향과 캐릭터 몸체 방향 사이의 차이 계산

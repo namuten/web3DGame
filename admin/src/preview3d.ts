@@ -8,15 +8,12 @@ const createFlowerModel = (flowerColor: number, flowerType: string = 'daisy') =>
   const flowerGroup = new THREE.Group();
   const stemSegments: THREE.Mesh[] = [];
   const stemPointCount = 8;
-  const stemHeight = 0.8;
+  const stemHeight = 1.2; // 줄기 길이 2배
   const stemMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
 
   for (let i = 0; i < stemPointCount; i++) {
     const t = i / (stemPointCount - 1);
-    const segment = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.015, 0.015, stemHeight / stemPointCount),
-      stemMat
-    );
+    const segment = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, stemHeight / stemPointCount), stemMat);
     segment.position.set(0, t * stemHeight, 0);
     flowerGroup.add(segment);
     stemSegments.push(segment);
@@ -33,27 +30,23 @@ const createFlowerModel = (flowerColor: number, flowerType: string = 'daisy') =>
   flowerHead.rotation.x = 0.4;
   flowerGroup.add(flowerHead);
 
-  const center = new THREE.Mesh(
-    new THREE.SphereGeometry(0.08),
-    new THREE.MeshStandardMaterial({ color: 0xffcc00 })
-  );
-  
+  const center = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffcc00 }));
   const createPetalMat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0 });
   const initialPetalMat = createPetalMat(flowerColor);
   let petalMeshes: THREE.Mesh[] = [];
 
   if (flowerType === 'rose') {
     center.material = new THREE.MeshStandardMaterial({ color: 0x880000 });
-    center.scale.set(0.6, 0.4, 0.6);
+    center.scale.set(1.25, 0.75, 1.25);
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    petalGeo.scale(1, 1.5, 0.2);
+    const petalGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    petalGeo.scale(1.25, 1.75, 0.3);
     for (let i = 0; i < 18; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
-      const angle = (i / 18) * Math.PI * 2 * 2; // spiral
-      const radius = 0.03 + (i * 0.003);
-      petal.position.set(Math.cos(angle) * radius, i * 0.004, Math.sin(angle) * radius);
-      petal.rotation.y = -angle + Math.PI/2;
+      const angle = (i / 18) * Math.PI * 2 * 2;
+      const radius = 0.075 + (i * 0.0075);
+      petal.position.set(Math.cos(angle) * radius, i * 0.01, Math.sin(angle) * radius);
+      petal.rotation.y = -angle + Math.PI / 2;
       petal.rotation.x = -0.1 - (i * 0.02);
       flowerHead.add(petal);
       petalMeshes.push(petal);
@@ -61,28 +54,29 @@ const createFlowerModel = (flowerColor: number, flowerType: string = 'daisy') =>
   } else if (flowerType === 'tulip') {
     center.visible = false;
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    petalGeo.scale(0.8, 2.0, 0.2);
+    const petalGeo = new THREE.SphereGeometry(0.1, 8, 8);
+    petalGeo.scale(1.1, 2.75, 0.3);
     for (let i = 0; i < 6; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
       const angle = (i / 6) * Math.PI * 2;
-      petal.position.set(Math.cos(angle) * 0.04, 0.08, Math.sin(angle) * 0.04);
-      petal.rotation.y = -angle + Math.PI/2;
+      petal.position.set(Math.cos(angle) * 0.1, 0.15, Math.sin(angle) * 0.1);
+      petal.rotation.y = -angle + Math.PI / 2;
       petal.rotation.x = 0.15;
       flowerHead.add(petal);
       petalMeshes.push(petal);
     }
   } else if (flowerType === 'sunflower') {
-    center.geometry = new THREE.CylinderGeometry(0.12, 0.12, 0.02, 16) as any;
+    center.geometry = new THREE.CylinderGeometry(0.18, 0.18, 0.03, 16) as any;
     center.material = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
-    center.rotation.x = Math.PI/2;
+    center.rotation.x = Math.PI / 2;
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.02, 8, 8);
-    petalGeo.scale(1.5, 0.2, 3);
+    const petalGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    petalGeo.scale(1.75, 0.3, 4.75);
     for (let i = 0; i < 24; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
       const angle = (i / 24) * Math.PI * 2;
-      petal.position.set(Math.cos(angle) * 0.16, 0, Math.sin(angle) * 0.16);
+      const radius = 0.225;
+      petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
       petal.rotation.y = -angle;
       flowerHead.add(petal);
       petalMeshes.push(petal);
@@ -90,31 +84,81 @@ const createFlowerModel = (flowerColor: number, flowerType: string = 'daisy') =>
   } else if (flowerType === 'clover') {
     center.visible = false;
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.06, 8, 8);
-    petalGeo.scale(1, 0.2, 1);
+    const petalGeo = new THREE.SphereGeometry(0.12, 8, 8);
+    petalGeo.scale(1.6, 0.25, 1.6);
     for (let i = 0; i < 4; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
       const angle = (i / 4) * Math.PI * 2;
-      petal.position.set(Math.cos(angle) * 0.08, 0, Math.sin(angle) * 0.08);
+      petal.position.set(Math.cos(angle) * 0.175, 0, Math.sin(angle) * 0.175);
+      petal.rotation.y = -angle;
       flowerHead.add(petal);
       petalMeshes.push(petal);
     }
   } else {
-    // daisy
-    center.scale.set(1, 0.6, 1);
+    // Daisy (default)
+    center.scale.set(1.5, 0.6, 1.5);
     flowerHead.add(center);
-    const petalGeo = new THREE.SphereGeometry(0.03, 8, 8);
-    petalGeo.scale(1.5, 0.2, 5);
+    const petalGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    petalGeo.scale(1.75, 0.2, 6.75);
     for (let i = 0; i < 18; i++) {
       const petal = new THREE.Mesh(petalGeo, initialPetalMat);
       const angle = (i / 18) * Math.PI * 2;
-      petal.position.set(Math.cos(angle) * 0.18, 0, Math.sin(angle) * 0.18);
+      const radius = 0.275;
+      petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
       petal.rotation.y = -angle;
-      petal.rotation.z = 0.1;
+      petal.rotation.z = 0.15;
       flowerHead.add(petal);
       petalMeshes.push(petal);
     }
   }
+
+  let shootTimer = 0;
+  let chargeAmount = 0;
+  let currentStrength = 0;
+  const SHOOT_DURATION = 0.5;
+
+  (flowerGroup as any).triggerShoot = (strength: number = 0.5) => {
+    shootTimer = SHOOT_DURATION;
+    currentStrength = strength;
+  };
+
+  (flowerGroup as any).setChargeAmount = (val: number) => {
+    chargeAmount = val;
+  };
+
+  (flowerGroup as any).updateFlowerPhysics = (forward: number, side: number, dt: number = 0.016) => {
+    const tiltBase = 0.4;
+    let shootOffset = 0;
+    if (shootTimer > 0) {
+      shootTimer -= dt;
+      const progress = 1.0 - (shootTimer / SHOOT_DURATION);
+      if (progress < 0.2) {
+        shootOffset = -chargeAmount * 1.5 - (progress / 0.2) * 0.5;
+      } else if (progress < 0.4) {
+        const p2 = (progress - 0.2) / 0.2;
+        const snapMax = 1.0 + currentStrength * 2.5;
+        shootOffset = -chargeAmount * 2.0 + p2 * (snapMax + chargeAmount * 2.0);
+      } else {
+        const p3 = (progress - 0.4) / 0.6;
+        shootOffset = (1.0 + currentStrength * 2.5) * (1.0 - p3);
+      }
+    } else {
+      shootOffset = -chargeAmount * 2.2;
+    }
+
+    const totalFwd = forward + shootOffset;
+    stemSegments.forEach((seg, i) => {
+      const t = i / (stemSegments.length - 1);
+      const curve = Math.pow(t, 2);
+      seg.position.z = curve * totalFwd * 1.1;
+      seg.position.x = curve * side * 1.1;
+      seg.rotation.x = t * totalFwd * 1.8;
+      seg.rotation.z = -t * side * 1.8;
+    });
+    flowerHead.position.set(side * 1.1, stemHeight, totalFwd * 1.1);
+    flowerHead.rotation.x = tiltBase + totalFwd * 2.2;
+    flowerHead.rotation.z = -side * 2.2;
+  };
 
   (flowerGroup as any).setPetalColor = (color: number) => {
     const mat = createPetalMat(color);
@@ -150,7 +194,7 @@ const createVisorModel = (visorColor: number, visorType: string = 'normal') => {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: visorColor, roughness: 0.2, metalness: 0.1 });
   const extrudeSettings = { depth: 0.05, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
-  
+
   if (visorType === 'glasses') {
     const lensL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 32), mat);
     lensL.rotation.x = Math.PI / 2;
@@ -266,6 +310,9 @@ const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType
   (root as any).setVisorColor = (c: number) => {
     if ((visor as any).setVisorColor) (visor as any).setVisorColor(c);
   };
+  (root as any).updateFlowerPhysics = (f: number, s: number, dt: number) => {
+    if ((flower as any).updateFlowerPhysics) (flower as any).updateFlowerPhysics(f, s, dt);
+  };
   (root as any).setVisorStyle = (c: number, t: string) => {
     upperBody.remove(visor);
     visor = createVisorModel(c, t);
@@ -277,6 +324,13 @@ const createCharacterModel = (bodyColor: number, flowerColor: number, flowerType
     flower = createFlowerModel(c, t);
     flower.position.y = 0.6;
     upperBody.add(flower);
+  };
+
+  (root as any).triggerShootAnimation = (strength: number = 0.5) => {
+    if ((flower as any).triggerShoot) (flower as any).triggerShoot(strength);
+  };
+  (root as any).setChargeAmount = (val: number) => {
+    if ((flower as any).setChargeAmount) (flower as any).setChargeAmount(val);
   };
 
   return root;
@@ -301,6 +355,23 @@ export class Preview3D {
   private _onMouseMove: (e: MouseEvent) => void;
   private _onMouseUp: () => void;
   private _onKeyDown: (e: KeyboardEvent) => void;
+
+  private isCharging = false;
+  private chargeAmount = 0;
+  private MAX_CHARGE_TIME = 1.2;
+
+  private _onStartCharge = () => {
+    this.isCharging = true;
+  };
+  private _onReleaseCharge = () => {
+    if (this.isCharging && this.model) {
+      this.isCharging = false;
+      const strength = Math.min(this.chargeAmount, 1.0);
+      (this.model as any).triggerShootAnimation(strength);
+      this.chargeAmount = 0;
+      (this.model as any).setChargeAmount(0);
+    }
+  };
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -339,22 +410,32 @@ export class Preview3D {
       if (isFormField) return;
 
       if (e.key.startsWith('Arrow')) e.preventDefault();
-      if (e.key === 'ArrowLeft')  this.rotY -= 0.05;
+      if (e.key === 'ArrowLeft') this.rotY -= 0.05;
       if (e.key === 'ArrowRight') this.rotY += 0.05;
-      if (e.key === 'ArrowUp')    this.rotX = Math.max(-0.5, this.rotX - 0.05);
-      if (e.key === 'ArrowDown')  this.rotX = Math.min(1.0,  this.rotX + 0.05);
+      if (e.key === 'ArrowUp') this.rotX = Math.max(-0.5, this.rotX - 0.05);
+      if (e.key === 'ArrowDown') this.rotX = Math.min(1.0, this.rotX + 0.05);
     };
+
+    canvas.addEventListener('keydown', this._onKeyDown);
+    window.addEventListener('keydown', (e) => {
+      this._onKeyDown(e);
+      if (e.code === 'KeyF') this._onStartCharge();
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'KeyF') this._onReleaseCharge();
+    });
 
     canvas.addEventListener('mousedown', (e) => {
       canvas.focus();
       this.isDragging = true;
       this.prevMouseX = e.clientX;
       this.prevMouseY = e.clientY;
+      if (e.button === 0) this._onStartCharge();
     });
-    window.addEventListener('mousemove', this._onMouseMove);
-    window.addEventListener('mouseup', this._onMouseUp);
-    canvas.addEventListener('keydown', this._onKeyDown);
-    window.addEventListener('keydown', this._onKeyDown);
+    window.addEventListener('mouseup', (e) => {
+      this.isDragging = false;
+      if (e.button === 0) this._onReleaseCharge();
+    });
 
     this._animate();
   }
@@ -371,7 +452,7 @@ export class Preview3D {
 
   loadMap(config: MapData) {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
-    
+
     this.scene.background = new THREE.Color(config.bgColor);
     if (config.fogDensity > 0) {
       this.scene.fog = new THREE.FogExp2(new THREE.Color(config.bgColor).getHex(), config.fogDensity);
@@ -380,7 +461,7 @@ export class Preview3D {
     }
 
     const group = new THREE.Group();
-    
+
     // 단순화된 바닥 (preview 용으로 스케일을 줄임)
     const scale = 0.05; // 실제 코어 사이즈 400을 preview 용 20 정도로 축소
     const previewFloorSize = config.floorSize * scale;
@@ -400,33 +481,33 @@ export class Preview3D {
     const colors = config.obstacleColors.map(c => new THREE.Color(c).getHex());
     const previewPlayZone = config.playZone * scale;
     // 너무 많으면 버벅이므로 최대 20개만 표시
-    const obstacleCount = Math.min(20, config.obstacleCount); 
-    
-    for (let i = 0; i < obstacleCount; i++) {
-        if (colors.length === 0) break;
-        const color = colors[Math.floor(seededRandom() * colors.length)];
-        
-        let obs;
-        if (config.theme === 'pastel') {
-             obs = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5), new THREE.MeshStandardMaterial({ color }));
-             obs.position.y = 0.75;
-        } else if (config.theme === 'neon') {
-             obs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1 }));
-             obs.position.y = 1.0;
-        } else if (config.theme === 'candy') {
-             obs = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshStandardMaterial({ color }));
-             obs.position.y = 0.6;
-        } else {
-             obs = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color }));
-             obs.position.y = 0.4;
-        }
+    const obstacleCount = Math.min(20, config.obstacleCount);
 
-        const rx = seededRandom() * previewPlayZone * 2 - previewPlayZone;
-        const rz = seededRandom() * previewPlayZone * 2 - previewPlayZone;
-        
-        obs.position.x = rx;
-        obs.position.z = rz;
-        group.add(obs);
+    for (let i = 0; i < obstacleCount; i++) {
+      if (colors.length === 0) break;
+      const color = colors[Math.floor(seededRandom() * colors.length)];
+
+      let obs;
+      if (config.theme === 'pastel') {
+        obs = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5), new THREE.MeshStandardMaterial({ color }));
+        obs.position.y = 0.75;
+      } else if (config.theme === 'neon') {
+        obs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1 }));
+        obs.position.y = 1.0;
+      } else if (config.theme === 'candy') {
+        obs = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshStandardMaterial({ color }));
+        obs.position.y = 0.6;
+      } else {
+        obs = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color }));
+        obs.position.y = 0.4;
+      }
+
+      const rx = seededRandom() * previewPlayZone * 2 - previewPlayZone;
+      const rz = seededRandom() * previewPlayZone * 2 - previewPlayZone;
+
+      obs.position.x = rx;
+      obs.position.z = rz;
+      group.add(obs);
     }
 
     this.model = group;
@@ -436,17 +517,27 @@ export class Preview3D {
   updateColor(type: 'body' | 'flower' | 'visor', hexColor: string, styleType: string = 'daisy') {
     if (!this.model) return;
     const c = toThreeColor(hexColor);
-    if (type === 'body')   (this.model as any).setBodyColor(c);
+    if (type === 'body') (this.model as any).setBodyColor(c);
     if (type === 'flower') (this.model as any).setFlowerStyle(c, styleType);
-    if (type === 'visor')  (this.model as any).setVisorStyle(c, styleType);
+    if (type === 'visor') (this.model as any).setVisorStyle(c, styleType);
   }
 
   private _animate = () => {
+    const dt = 0.016; // approximated
     this.animId = requestAnimationFrame(this._animate);
     if (this.model) {
       if (!this.isDragging) this.rotY += 0.005;
       this.model.rotation.y = this.rotY;
       this.model.rotation.x = this.rotX * 0.25;
+      
+      if ((this.model as any).updateFlowerPhysics) {
+        (this.model as any).updateFlowerPhysics(0, 0, dt);
+      }
+      if (this.isCharging) {
+        this.chargeAmount += dt / this.MAX_CHARGE_TIME;
+        if (this.chargeAmount > 1.0) this.chargeAmount = 1.0;
+        (this.model as any).setChargeAmount(this.chargeAmount);
+      }
     }
     this.camera.position.set(0, 2, 5);
     this.camera.lookAt(0, 1, 0);

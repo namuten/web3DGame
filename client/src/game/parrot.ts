@@ -162,16 +162,65 @@ class ParrotManager {
     parrot.mesh.lookAt(lookTarget);
   }
 
-  private updateFlee(_parrot: ParrotInstance, _playerPos: THREE.Vector3, _dt: number): void {
-    // Task 4에서 구현
+  private updateFlee(parrot: ParrotInstance, playerPos: THREE.Vector3, dt: number): void {
+    // 플레이어 반대 방향
+    const away = parrot.mesh.position.clone().sub(playerPos);
+    away.y = 0;
+    away.normalize();
+
+    parrot.mesh.position.x += away.x * SPEED_FLEE * dt;
+    parrot.mesh.position.z += away.z * SPEED_FLEE * dt;
+
+    // 공중으로 올라감 (목표 높이: 지면 + 8)
+    const groundY = getGroundHeight(parrot.mesh.position.x, parrot.mesh.position.z);
+    const targetY = groundY + 8;
+    parrot.mesh.position.y += (targetY - parrot.mesh.position.y) * 5 * dt;
+
+    // 도망가는 방향 바라봄
+    const lookTarget = parrot.mesh.position.clone().add(away);
+    parrot.mesh.lookAt(lookTarget);
   }
 
-  private updateAttack(_parrot: ParrotInstance, _playerPos: THREE.Vector3, _dt: number): void {
-    // Task 4에서 구현
+  private updateAttack(parrot: ParrotInstance, playerPos: THREE.Vector3, dt: number): void {
+    // 플레이어 방향으로 돌진
+    const toPlayer = playerPos.clone().sub(parrot.mesh.position);
+    toPlayer.y = 0;
+    toPlayer.normalize();
+
+    parrot.mesh.position.x += toPlayer.x * SPEED_ATTACK * dt;
+    parrot.mesh.position.z += toPlayer.z * SPEED_ATTACK * dt;
+
+    // 공중 (지면 + 4)
+    const groundY = getGroundHeight(parrot.mesh.position.x, parrot.mesh.position.z);
+    const targetY = groundY + 4;
+    parrot.mesh.position.y += (targetY - parrot.mesh.position.y) * 5 * dt;
+
+    // 플레이어 방향 바라봄
+    parrot.mesh.lookAt(playerPos);
   }
 
-  private updateFriendly(_parrot: ParrotInstance, _playerPos: THREE.Vector3, _dt: number): void {
-    // Task 4에서 구현
+  private updateFriendly(parrot: ParrotInstance, playerPos: THREE.Vector3, dt: number): void {
+    // 처음 FRIENDLY 진입 시 말풍선 표시
+    if (!parrot.bubbleShown) {
+      parrot.bubbleShown = true;
+      showChatBubble(parrot.mesh, '꽥!');
+    }
+
+    // 플레이어 주변 선회 (orbit)
+    parrot.orbitAngle += SPEED_FRIENDLY * dt;
+
+    const tx = playerPos.x + Math.cos(parrot.orbitAngle) * ORBIT_RADIUS;
+    const tz = playerPos.z + Math.sin(parrot.orbitAngle) * ORBIT_RADIUS;
+    const groundY = getGroundHeight(tx, tz);
+    const ty = groundY + 2;
+
+    // 부드럽게 목표 위치로 이동
+    parrot.mesh.position.x += (tx - parrot.mesh.position.x) * 5 * dt;
+    parrot.mesh.position.y += (ty - parrot.mesh.position.y) * 5 * dt;
+    parrot.mesh.position.z += (tz - parrot.mesh.position.z) * 5 * dt;
+
+    // 플레이어 방향 바라봄
+    parrot.mesh.lookAt(playerPos);
   }
 }
 

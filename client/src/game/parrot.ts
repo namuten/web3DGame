@@ -22,6 +22,7 @@ const WANDER_WAIT_MIN = 1.5;  // 도착 후 대기 최소 (초)
 const WANDER_WAIT_MAX = 3.5;  // 도착 후 대기 최대 (초)
 const ARRIVE_DIST     = 1.5;  // 목표 도착 판정 거리
 const ORBIT_RADIUS    = 4;    // FRIENDLY 선회 반경
+const LERP_SPEED      = 5;    // 부드러운 이동 감쇠 계수
 
 // ─── 타입 ──────────────────────────────────────────────
 type ParrotState = 'WANDER' | 'FLEE' | 'ATTACK' | 'FRIENDLY';
@@ -119,6 +120,13 @@ class ParrotManager {
     }
   }
 
+  private moveAerial(parrot: ParrotInstance, dir: THREE.Vector3, speed: number, altitudeOffset: number, dt: number): void {
+    parrot.mesh.position.x += dir.x * speed * dt;
+    parrot.mesh.position.z += dir.z * speed * dt;
+    const groundY = getGroundHeight(parrot.mesh.position.x, parrot.mesh.position.z);
+    parrot.mesh.position.y += (groundY + altitudeOffset - parrot.mesh.position.y) * LERP_SPEED * dt;
+  }
+
   private pickWanderTarget(parrot: ParrotInstance): void {
     const cx = parrot.mesh.position.x;
     const cz = parrot.mesh.position.z;
@@ -164,36 +172,23 @@ class ParrotManager {
 
   private updateFlee(parrot: ParrotInstance, playerPos: THREE.Vector3, dt: number): void {
     // 플레이어 반대 방향
-    const away = parrot.mesh.position.clone().sub(playerPos);
+    const away = new THREE.Vector3().subVectors(parrot.mesh.position, playerPos);
     away.y = 0;
     away.normalize();
 
-    parrot.mesh.position.x += away.x * SPEED_FLEE * dt;
-    parrot.mesh.position.z += away.z * SPEED_FLEE * dt;
-
-    // 공중으로 올라감 (목표 높이: 지면 + 8)
-    const groundY = getGroundHeight(parrot.mesh.position.x, parrot.mesh.position.z);
-    const targetY = groundY + 8;
-    parrot.mesh.position.y += (targetY - parrot.mesh.position.y) * 5 * dt;
+    this.moveAerial(parrot, away, SPEED_FLEE, 8, dt);
 
     // 도망가는 방향 바라봄
-    const lookTarget = parrot.mesh.position.clone().add(away);
-    parrot.mesh.lookAt(lookTarget);
+    parrot.mesh.lookAt(parrot.mesh.position.clone().add(away));
   }
 
   private updateAttack(parrot: ParrotInstance, playerPos: THREE.Vector3, dt: number): void {
     // 플레이어 방향으로 돌진
-    const toPlayer = playerPos.clone().sub(parrot.mesh.position);
+    const toPlayer = new THREE.Vector3().subVectors(playerPos, parrot.mesh.position);
     toPlayer.y = 0;
     toPlayer.normalize();
 
-    parrot.mesh.position.x += toPlayer.x * SPEED_ATTACK * dt;
-    parrot.mesh.position.z += toPlayer.z * SPEED_ATTACK * dt;
-
-    // 공중 (지면 + 4)
-    const groundY = getGroundHeight(parrot.mesh.position.x, parrot.mesh.position.z);
-    const targetY = groundY + 4;
-    parrot.mesh.position.y += (targetY - parrot.mesh.position.y) * 5 * dt;
+    this.moveAerial(parrot, toPlayer, SPEED_ATTACK, 4, dt);
 
     // 플레이어 방향 바라봄
     parrot.mesh.lookAt(playerPos);
@@ -207,7 +202,7 @@ class ParrotManager {
     }
 
     // 플레이어 주변 선회 (orbit)
-    parrot.orbitAngle += SPEED_FRIENDLY * dt;
+    parrot.orbitAngle = (parrot.orbitAngle + SPEED_FRIENDLY * dt) % (Math.PI * 2);
 
     const tx = playerPos.x + Math.cos(parrot.orbitAngle) * ORBIT_RADIUS;
     const tz = playerPos.z + Math.sin(parrot.orbitAngle) * ORBIT_RADIUS;
@@ -215,9 +210,9 @@ class ParrotManager {
     const ty = groundY + 2;
 
     // 부드럽게 목표 위치로 이동
-    parrot.mesh.position.x += (tx - parrot.mesh.position.x) * 5 * dt;
-    parrot.mesh.position.y += (ty - parrot.mesh.position.y) * 5 * dt;
-    parrot.mesh.position.z += (tz - parrot.mesh.position.z) * 5 * dt;
+    parrot.mesh.position.x += (tx - parrot.mesh.position.x) * LERP_SPEED * dt;
+    parrot.mesh.position.y += (ty - parrot.mesh.position.y) * LERP_SPEED * dt;
+    parrot.mesh.position.z += (tz - parrot.mesh.position.z) * LERP_SPEED * dt;
 
     // 플레이어 방향 바라봄
     parrot.mesh.lookAt(playerPos);

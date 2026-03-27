@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'http://220.85.41.214:3000';
 const BASE = `${API_URL}/api/monster-terms`;
 
 export interface TermData {

@@ -1,11 +1,44 @@
 version: '3.3'
 
 services:
+  # ─── Nginx Reverse Proxy (SSL 종료) ───
+  nginx-proxy:
+    image: nginx:stable-alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - web3d-client
+      - web3d-server
+      - web3d-admin
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ─── Certbot (Let's Encrypt 인증서 자동 갱신) ───
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet --deploy-hook \"docker exec nginx-proxy nginx -s reload\"; sleep 12h & wait $${!}; done'"
+    restart: always
+
   web3d-client:
     build: ./client
     container_name: web3d-client
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     restart: always
     logging:
       driver: "json-file"
@@ -16,8 +49,8 @@ services:
   web3d-server:
     build: ./server
     container_name: web3d-server
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - PORT=3000
       - DB_HOST=220.85.41.214
@@ -35,8 +68,8 @@ services:
   web3d-admin:
     build: ./admin
     container_name: web3d-admin
-    ports:
-      - "81:80"
+    expose:
+      - "80"
     restart: always
     logging:
       driver: "json-file"

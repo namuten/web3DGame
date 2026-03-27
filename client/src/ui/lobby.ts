@@ -1,6 +1,6 @@
 // MapConfig is not used here, using MapInfo instead
 
-const API_URL = import.meta.env.VITE_SERVER_URL || 'http://namuten.duckdns.org:3000';
+const API_URL = import.meta.env.VITE_SERVER_URL || 'https://namuten.duckdns.org';
 
 interface MapInfo {
   id: number;

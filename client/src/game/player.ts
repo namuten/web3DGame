@@ -51,11 +51,14 @@ const CAMERA_DIST = 14;
 // 카메라 회전 관성 변수
 let thetaVelocity = 0;
 let phiVelocity = 0;
-const ROTATION_ACCEL = 5.0;   // 회전 가속도
-const ROTATION_FRICTION = 0.92; // 마찰력 (자연스러운 멈춤)
+const ROTATION_ACCEL = 10.0;   // 회전 가속도 (조금 더 빠르게)
+const ROTATION_FRICTION = 0.90; // 마찰력 (조금 더 묵직하게)
 
-const PHI_MIN = 0.1;
-export const PHI_MAX = Math.PI / 2.2;
+// 우클릭 드래그 상태
+let isRightMouseDown = false;
+
+const PHI_MIN = 0.2; // 너무 밑에서 보지 못하게 상향
+export const PHI_MAX = Math.PI / 2.3; // 지면 뚫기 방지 강화
 
 // 카메라 보간 변수
 const currentCameraPos = new THREE.Vector3(0, 4, 14);
@@ -262,10 +265,31 @@ export const initPlayer = () => {
   };
 
   window.addEventListener('mousedown', (e) => {
+    if (e.button === 2) {
+      isRightMouseDown = true;
+    }
     if (e.button === 0 && document.activeElement?.tagName !== 'INPUT') startCharge();
   });
+
   window.addEventListener('mouseup', (e) => {
+    if (e.button === 2) {
+      isRightMouseDown = false;
+    }
     if (e.button === 0) releaseCharge();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isRightMouseDown) {
+      // 마우스 감도 (임의 조정 가능)
+      const sensitivity = 0.005;
+      cameraTheta -= e.movementX * sensitivity;
+      cameraPhi += e.movementY * sensitivity;
+    }
+  });
+
+  // 우클릭 컨텍스트 메뉴 방지
+  window.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
   });
 };
 

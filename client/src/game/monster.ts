@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { scene } from '../engine/scene';
 import { getGroundHeight } from './world';
+import { soundManager } from '../audio/soundManager';
 
 export interface MonsterData {
     id: string;
@@ -182,6 +183,11 @@ class MonsterManager {
 
     damage(_hp: number, maxHp: number, scale: number = 1.0) {
         if (!this.monsterMesh || !this.bodyMat) return;
+        if (_hp <= 0) {
+            soundManager.playDeath();
+        } else {
+            soundManager.playHit();
+        }
         this.flashTimer = 0.2; // 0.2초간 번쩍임
         console.log(`Monster HP: ${_hp}/${maxHp}, Scale: ${scale}`);
         this.targetScale = scale;

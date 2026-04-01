@@ -9,4 +9,5 @@ export interface MapConfig {
   fogDensity: number;
   bgColor: string;
   seed: number;
+  bgmFile?: string;     // 맵별 BGM 파일명 (확장자 제외, public/sounds/bgm/ 기준)
 }

@@ -1,7 +1,17 @@
 import { MapData, createMap, updateMap } from './mapApi';
 import { Preview3D } from './preview3d';
+import { stopBGM } from './mapList';
 
 let preview: Preview3D | null = null;
+
+const BGM_OPTIONS = [
+  { value: '',              label: '(없음)' },
+  { value: 'bgm_lobby',    label: '🏠 Lobby' },
+  { value: 'bgm_adventure',label: '⚔️ Adventure' },
+  { value: 'bgm_nature',   label: '🌿 Nature' },
+  { value: 'bgm_mystic',   label: '✨ Mystic' },
+  { value: 'bgm_retro',    label: '👾 Retro' },
+];
 
 const defaultMap = (): Omit<MapData, 'id'> => ({
   name: '',
@@ -14,11 +24,13 @@ const defaultMap = (): Omit<MapData, 'id'> => ({
   bgColor: '#A2D2FF',
   seed: 42,
   isActive: true,
+  bgmFile: '',
 });
 
 const randomSeed = () => Math.floor(Math.random() * 2147483647);
 
 export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData) => void) => {
+  stopBGM();
   const container = document.getElementById('map-form-container')!;
   const data: Omit<MapData, 'id'> = map ? { ...map } : defaultMap();
   let colors: string[] = [...data.obstacleColors];
@@ -45,7 +57,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   };
 
   container.innerHTML = `
-    <h2 style="margin-bottom:20px;font-size:16px;">${map ? '맵 편집' : '새 맵'}</h2>
+    <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">${map ? '맵 편집' : '새 맵'}</div>
     <div class="form-inner">
       <div class="preview-col">
         <canvas id="map-preview-canvas" tabindex="0"></canvas>
@@ -59,8 +71,8 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
         <label>테마</label>
         <select id="m-theme">
           <option value="pastel" ${data.theme === 'pastel' ? 'selected' : ''}>Pastel</option>
-          <option value="candy"  ${data.theme === 'candy'  ? 'selected' : ''}>Candy</option>
-          <option value="neon"   ${data.theme === 'neon'   ? 'selected' : ''}>Neon</option>
+          <option value="candy"  ${data.theme === 'candy' ? 'selected' : ''}>Candy</option>
+          <option value="neon"   ${data.theme === 'neon' ? 'selected' : ''}>Neon</option>
           <option value="custom" ${data.theme === 'custom' ? 'selected' : ''}>Custom</option>
         </select>
       </div>
@@ -97,6 +109,12 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
         </div>
       </div>
       <div class="form-group">
+        <label>배경음악 (BGM)</label>
+        <select id="m-bgm">
+          ${BGM_OPTIONS.map(o => `<option value="${o.value}" ${(data.bgmFile || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
         <label>활성 여부</label>
         <input id="m-active" type="checkbox" ${data.isActive ? 'checked' : ''} />
       </div>
@@ -113,7 +131,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   const canvas = document.getElementById('map-preview-canvas') as HTMLCanvasElement;
   const parent = canvas.parentElement;
   canvas.width = parent ? parent.clientWidth : 600;
-  canvas.height = 600;
+  canvas.height = parent ? parent.clientHeight : 600;
   if (preview) preview.destroy();
   preview = new Preview3D(canvas);
 
@@ -121,14 +139,14 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
     if (!preview) return;
     const payload = {
       name: 'Preview',
-      theme: (document.getElementById('m-theme')  as HTMLSelectElement).value,
-      obstacleCount:  Number((document.getElementById('m-obs')   as HTMLInputElement).value),
-      floorSize:      Number((document.getElementById('m-floor') as HTMLInputElement).value),
-      playZone:       Number((document.getElementById('m-pz')    as HTMLInputElement).value),
-      fogDensity:     Number((document.getElementById('m-fog')   as HTMLInputElement).value),
-      bgColor:        (document.getElementById('m-bg')     as HTMLInputElement).value,
-      seed:           Number((document.getElementById('m-seed')  as HTMLInputElement).value),
-      isActive:       true,
+      theme: (document.getElementById('m-theme') as HTMLSelectElement).value,
+      obstacleCount: Number((document.getElementById('m-obs') as HTMLInputElement).value),
+      floorSize: Number((document.getElementById('m-floor') as HTMLInputElement).value),
+      playZone: Number((document.getElementById('m-pz') as HTMLInputElement).value),
+      fogDensity: Number((document.getElementById('m-fog') as HTMLInputElement).value),
+      bgColor: (document.getElementById('m-bg') as HTMLInputElement).value,
+      seed: Number((document.getElementById('m-seed') as HTMLInputElement).value),
+      isActive: true,
       obstacleColors: colors,
     };
     preview.loadMap(payload as any);
@@ -175,6 +193,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   });
 
   document.getElementById('m-cancel-btn')!.addEventListener('click', () => {
+    stopBGM();
     container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
     if (preview) { preview.destroy(); preview = null; }
   });
@@ -184,17 +203,19 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
     if (!name) { alert('맵 이름을 입력하세요.'); return; }
     if (colors.length === 0) { alert('컬러 팔레트에 최소 1개 이상 입력하세요.'); return; }
 
+    const bgmVal = (document.getElementById('m-bgm') as HTMLSelectElement).value;
     const payload: Omit<MapData, 'id'> = {
       name,
-      theme:          (document.getElementById('m-theme')  as HTMLSelectElement).value,
-      obstacleCount:  Number((document.getElementById('m-obs')   as HTMLInputElement).value),
-      floorSize:      Number((document.getElementById('m-floor') as HTMLInputElement).value),
-      playZone:       Number((document.getElementById('m-pz')    as HTMLInputElement).value),
-      fogDensity:     Number((document.getElementById('m-fog')   as HTMLInputElement).value),
-      bgColor:        (document.getElementById('m-bg')     as HTMLInputElement).value,
-      seed:           Number((document.getElementById('m-seed')  as HTMLInputElement).value),
-      isActive:       (document.getElementById('m-active') as HTMLInputElement).checked,
+      theme: (document.getElementById('m-theme') as HTMLSelectElement).value,
+      obstacleCount: Number((document.getElementById('m-obs') as HTMLInputElement).value),
+      floorSize: Number((document.getElementById('m-floor') as HTMLInputElement).value),
+      playZone: Number((document.getElementById('m-pz') as HTMLInputElement).value),
+      fogDensity: Number((document.getElementById('m-fog') as HTMLInputElement).value),
+      bgColor: (document.getElementById('m-bg') as HTMLInputElement).value,
+      seed: Number((document.getElementById('m-seed') as HTMLInputElement).value),
+      isActive: (document.getElementById('m-active') as HTMLInputElement).checked,
       obstacleColors: colors,
+      bgmFile: bgmVal || undefined,
     };
 
     console.log('[MapForm] Saving payload:', payload);

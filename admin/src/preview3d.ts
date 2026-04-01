@@ -512,6 +512,7 @@ export class Preview3D {
 
     this.model = group;
     this.scene.add(this.model);
+
   }
 
   updateColor(type: 'body' | 'flower' | 'visor', hexColor: string, styleType: string = 'daisy') {

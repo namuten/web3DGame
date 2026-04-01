@@ -4,6 +4,7 @@ import { playerMesh, cameraPhi, cameraTheta, PHI_MAX, getLocalBodyColor } from '
 import { otherPlayers } from '../network/players';
 import { monsterManager } from './monster';
 import { showDamageText } from './floatingText';
+import { soundManager } from '../audio/soundManager';
 
 // ─── 탄환 데이터 구조 ─────────────────────────────────────────
 interface Bullet {
@@ -104,6 +105,7 @@ export const fireBullet = (strength: number = 0.5) => {
   const finalSpeed = 8 + strength * 27;
   
   const bullet = createBullet(origin, dir, 'local', strength);
+  soundManager.playShoot();
   bullet.velocity.copy(dir).multiplyScalar(finalSpeed);
 
   if (_shootCallback) {
@@ -190,6 +192,7 @@ export const updateBullets = (deltaTime: number) => {
         if (targetId && _damageCallback) {
           // 기본 대미지 10 + 충전 위력에 따른 추가 대미지 (최대 40)
           const damageValue = Math.round(10 + b.strength * 30);
+          soundManager.playHit();
           _damageCallback(targetId, damageValue, b.velocity.clone().normalize());
           
           // 대상의 스케일에 맞춰 텍스트 높이 조절
@@ -226,6 +229,7 @@ export const updateBullets = (deltaTime: number) => {
       if (hitId && _damageCallback) {
         spawnImpact(endPos);
         const damageValue = Math.round(10 + b.strength * 30);
+        soundManager.playHit();
         _damageCallback(hitId, damageValue, b.velocity.clone().normalize());
         
         // 대상이 몬스터인지 확인하여 높이 조절
@@ -257,6 +261,7 @@ const removeBullet = (index: number) => {
 };
 
 const spawnImpact = (pos: THREE.Vector3) => {
+  soundManager.playImpact();
   for (let i = 0; i < 12; i++) {
     const pGeo = new THREE.SphereGeometry(0.1, 4, 4);
     const pMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });

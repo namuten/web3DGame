@@ -98,6 +98,7 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
     document.body.appendChild(overlay);
 
     let selectedChar: CharacterData | null = null;
+
     const startBtn = overlay.querySelector('#start-btn') as HTMLButtonElement;
     const cardsEl = overlay.querySelector('#char-cards') as HTMLElement;
     const emptyMsg = overlay.querySelector('#empty-msg') as HTMLElement;

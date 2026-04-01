@@ -139,13 +139,22 @@ export const soundManager = {
     currentBGM?.stop();
     currentBGMFile = bgmFile;
 
-    currentBGM = new Howl({
-      src: [`/sounds/bgm/${bgmFile}.mp3`, `/sounds/bgm/${bgmFile}.ogg`],
-      loop: true,
-      volume: 0.4,
-      onloaderror: (_id, err) => console.warn('[BGM] load error:', err),
-    });
-    currentBGM.play();
+    const ctx = Howler.ctx as AudioContext | null;
+    const doPlay = () => {
+      currentBGM = new Howl({
+        src: [`/sounds/bgm/${bgmFile}.mp3`, `/sounds/bgm/${bgmFile}.ogg`],
+        loop: true,
+        volume: 0.4,
+        onloaderror: (_id, err) => console.warn('[BGM] load error:', err),
+      });
+      currentBGM.play();
+    };
+
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().then(doPlay);
+    } else {
+      doPlay();
+    }
   },
 
   stopBGM() {

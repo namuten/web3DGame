@@ -171,22 +171,78 @@ export const initPlayer = () => {
 
   // 조작 안내 HUD
   const hint = document.createElement('div');
+  hint.id = 'controls-hint';
   hint.style.cssText = `
     position: absolute; top: 20px; right: 20px;
-    color: #333; font-family: monospace; font-size: 12px;
-    background: rgba(255, 255, 255, 0.7); padding: 10px 14px;
-    border-radius: 5px; border: 1px solid #cccccc;
-    pointer-events: none; line-height: 1.8;
+    color: #333; font-family: 'Inter', sans-serif; font-size: 13px;
+    background: rgba(255, 255, 255, 0.85); 
+    backdrop-filter: blur(10px);
+    padding: 12px 18px;
+    border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    pointer-events: auto; line-height: 1.8;
+    z-index: 1000;
   `;
   hint.innerHTML = `
-    <b style="color:#000">CONTROLS</b><br>
+    <b style="color:#000; font-size: 14px; display: block; margin-bottom: 8px; border-bottom: 1px solid #ddd;">CONTROLS</b>
     WASD &nbsp;&nbsp;: 이동<br>
     ↑↓←→ &nbsp;: 카메라 회전<br>
     Space : 점프<br>
     F / 클릭 : 발사<br>
     Enter : 채팅
+    <div id="audio-controls-container" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #ccc; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span>BGM Audio</span>
+        <button id="bgm-toggle-btn" style="
+          background: ${soundManager.isBGMEnabled() ? '#4da655' : '#888'};
+          color: white; border: none; padding: 4px 10px; border-radius: 20px;
+          font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s ease;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        ">
+          ${soundManager.isBGMEnabled() ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span>SFX Audio</span>
+        <button id="sfx-toggle-btn" style="
+          background: ${soundManager.isSFXEnabled() ? '#4da655' : '#888'};
+          color: white; border: none; padding: 4px 10px; border-radius: 20px;
+          font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s ease;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        ">
+          ${soundManager.isSFXEnabled() ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </div>
   `;
   document.body.appendChild(hint);
+
+  // BGM 토글 이벤트 핸들러
+  const bgmBtn = hint.querySelector('#bgm-toggle-btn') as HTMLElement;
+  if (bgmBtn) {
+    bgmBtn.addEventListener('click', () => {
+      const isEnabled = soundManager.toggleBGM();
+      bgmBtn.style.background = isEnabled ? '#4da655' : '#888';
+      bgmBtn.innerText = isEnabled ? 'ON' : 'OFF';
+      bgmBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { bgmBtn.style.transform = 'scale(1)'; }, 100);
+    });
+  }
+
+  // SFX 토글 이벤트 핸들러
+  const sfxBtn = hint.querySelector('#sfx-toggle-btn') as HTMLElement;
+  if (sfxBtn) {
+    sfxBtn.addEventListener('click', () => {
+      const isEnabled = soundManager.toggleSFX();
+      sfxBtn.style.background = isEnabled ? '#4da655' : '#888';
+      sfxBtn.innerText = isEnabled ? 'ON' : 'OFF';
+      sfxBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { sfxBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // 토글 리액션으로 짧은 소리 효과 (켜졌을 때만)
+      if (isEnabled) soundManager.playJump();
+    });
+  }
 
   // HP HUD 생성
   const hpContainer = document.createElement('div');

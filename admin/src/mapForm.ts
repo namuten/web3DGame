@@ -1,5 +1,6 @@
 import { MapData, createMap, updateMap } from './mapApi';
 import { Preview3D } from './preview3d';
+import { stopBGM } from './mapList';
 
 let preview: Preview3D | null = null;
 
@@ -29,6 +30,7 @@ const defaultMap = (): Omit<MapData, 'id'> => ({
 const randomSeed = () => Math.floor(Math.random() * 2147483647);
 
 export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData) => void) => {
+  stopBGM();
   const container = document.getElementById('map-form-container')!;
   const data: Omit<MapData, 'id'> = map ? { ...map } : defaultMap();
   let colors: string[] = [...data.obstacleColors];
@@ -191,6 +193,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   });
 
   document.getElementById('m-cancel-btn')!.addEventListener('click', () => {
+    stopBGM();
     container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
     if (preview) { preview.destroy(); preview = null; }
   });

@@ -6,7 +6,7 @@ type OnNew = () => void;
 let currentAudio: HTMLAudioElement | null = null;
 let currentPlayingId: number | null = null;
 
-const stopBGM = () => {
+export const stopBGM = () => {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;

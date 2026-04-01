@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import { createCharacterModel } from '../game/characterModel';
 import { toThreeColor } from '../utils';
-import { soundManager } from '../audio/soundManager';
-import type { SoundTheme } from '../audio/types';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://namuten.duckdns.org';
 
@@ -14,7 +12,6 @@ export interface CharacterSelection {
   visorColor: string;
   flowerType: string;
   visorType: string;
-  soundTheme: string;  // 추가
 }
 
 interface CharacterData {
@@ -90,16 +87,6 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
         <div id="empty-msg" style="display:none;color:#999;font-size:13px;padding:16px 0;">
           등록된 캐릭터가 없습니다. 관리자에게 문의하세요.
         </div>
-        <div style="margin-bottom:16px;text-align:left;">
-          <div style="font-size:12px;color:#888;margin-bottom:8px;">🔊 사운드 테마</div>
-          <div id="theme-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-            <button data-theme="cute"   style="padding:6px 12px;border-radius:20px;border:2px solid #FFAFCC;background:#fff;cursor:pointer;font-family:monospace;font-size:12px;">🌸 귀여움</button>
-            <button data-theme="retro"  style="padding:6px 12px;border-radius:20px;border:2px solid #ccc;background:#fff;cursor:pointer;font-family:monospace;font-size:12px;">👾 레트로</button>
-            <button data-theme="magic"  style="padding:6px 12px;border-radius:20px;border:2px solid #ccc;background:#fff;cursor:pointer;font-family:monospace;font-size:12px;">✨ 마법</button>
-            <button data-theme="cyber"  style="padding:6px 12px;border-radius:20px;border:2px solid #ccc;background:#fff;cursor:pointer;font-family:monospace;font-size:12px;">🤖 로봇</button>
-            <button data-theme="nature" style="padding:6px 12px;border-radius:20px;border:2px solid #ccc;background:#fff;cursor:pointer;font-family:monospace;font-size:12px;">🌿 자연</button>
-          </div>
-        </div>
         <button id="start-btn" disabled style="
           width:100%;padding:12px;font-size:16px;font-family:monospace;font-weight:bold;
           background:linear-gradient(135deg,#FFAFCC,#A2D2FF);
@@ -111,33 +98,6 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
     document.body.appendChild(overlay);
 
     let selectedChar: CharacterData | null = null;
-
-    // 사운드 테마 상태
-    const savedTheme = (localStorage.getItem('soundTheme') || 'cute') as SoundTheme;
-    soundManager.setTheme(savedTheme);
-    let selectedTheme: SoundTheme = savedTheme;
-
-    const updateThemeButtons = (active: SoundTheme) => {
-      overlay.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(btn => {
-        const isActive = btn.dataset.theme === active;
-        btn.style.borderColor = isActive ? '#FFAFCC' : '#ccc';
-        btn.style.background  = isActive ? '#fff5f9' : '#fff';
-        btn.style.fontWeight  = isActive ? 'bold' : 'normal';
-      });
-    };
-
-    updateThemeButtons(savedTheme);
-
-    overlay.querySelector('#theme-btns')!.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest('[data-theme]') as HTMLButtonElement | null;
-      if (!btn) return;
-      const theme = btn.dataset.theme as SoundTheme;
-      selectedTheme = theme;
-      soundManager.setTheme(theme);
-      localStorage.setItem('soundTheme', theme);
-      updateThemeButtons(theme);
-      soundManager.playJump(); // 미리듣기
-    });
 
     const startBtn = overlay.querySelector('#start-btn') as HTMLButtonElement;
     const cardsEl = overlay.querySelector('#char-cards') as HTMLElement;
@@ -212,7 +172,6 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
           visorColor: selectedChar!.visorColor,
           flowerType: selectedChar!.flowerType,
           visorType: selectedChar!.visorType || 'normal',
-          soundTheme: selectedTheme,   // 추가
         });
       }, 400);
     });

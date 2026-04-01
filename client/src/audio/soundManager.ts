@@ -51,7 +51,7 @@ const synth = (params: SoundEventParams) => {
   const { type, freqStart, freqEnd, duration, gain } = params;
   const now = ctx.currentTime;
   const gainNode = ctx.createGain();
-  gainNode.gain.setValueAtTime(gain * masterVolume, now);
+  gainNode.gain.setValueAtTime(Math.max(0.0001, gain * masterVolume), now);
   gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   gainNode.connect(ctx.destination);
 
@@ -87,7 +87,7 @@ const synthMelody = (params: SoundEventParams) => {
   notes.forEach((freq, i) => {
     const start = now + i * noteDur;
     const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(params.gain * masterVolume, start);
+    gainNode.gain.setValueAtTime(Math.max(0.0001, params.gain * masterVolume), start);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, start + noteDur);
     gainNode.connect(ctx.destination);
 
@@ -142,7 +142,7 @@ export const soundManager = {
     currentBGM = new Howl({
       src: [`/sounds/bgm/${bgmFile}.mp3`, `/sounds/bgm/${bgmFile}.ogg`],
       loop: true,
-      volume: 0.4 * masterVolume,
+      volume: 0.4,
       onloaderror: (_id, err) => console.warn('[BGM] load error:', err),
     });
     currentBGM.play();

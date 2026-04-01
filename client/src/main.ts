@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { renderer, mountRenderer } from './engine/renderer';
 import { scene } from './engine/scene';
 import { camera } from './engine/camera';
+import { soundManager } from './audio/soundManager';
+import type { SoundTheme } from './audio/types';
 import { initWorld, worldCollidables, updateWorld } from './game/world';
 import { initPlayer, updatePlayer, playerMesh, characterModel } from './game/player';
 import {
@@ -81,6 +83,7 @@ const animate = () => {
 // ─── 시작 흐름 ────────────────────────────────────────
 // 1. 캐릭터 선택
 showCharacterSelect().then((selection) => {
+  soundManager.setTheme(selection.soundTheme as SoundTheme);
   // 2. 소켓 연결 (캐릭터 auth 포함)
   const myTag = createNameTag(selection.playerName);
   myTag.name = 'nameTag';
@@ -105,6 +108,11 @@ showCharacterSelect().then((selection) => {
       // 5. 맵 초기화
       clearParty(); // 클리어 파티
       initWorld(config);
+      if (config.bgmFile) {
+        soundManager.playBGM(config.bgmFile);
+      } else {
+        soundManager.stopBGM();
+      }
 
       // 캐릭터 시작 위치 랜덤화 (로컬에서 즉시 반영)
       const pZone = config.playZone || 80;

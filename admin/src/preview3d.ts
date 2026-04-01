@@ -346,6 +346,7 @@ export class Preview3D {
   private model: THREE.Group | null = null;
   private animId = 0;
   private bgmAudio: HTMLAudioElement | null = null;
+  private currentBgmFile: string | null = null;
 
   private isDragging = false;
   private prevMouseX = 0;
@@ -514,17 +515,21 @@ export class Preview3D {
     this.model = group;
     this.scene.add(this.model);
 
-    // BGM 재생
-    if (this.bgmAudio) {
-      this.bgmAudio.pause();
-      this.bgmAudio = null;
-    }
-    if (config.bgmFile) {
-      const audio = new Audio(`/sounds/bgm/${config.bgmFile}.mp3`);
-      audio.loop = true;
-      audio.volume = 0.4;
-      audio.play().catch(() => {/* autoplay 차단 시 무시 */});
-      this.bgmAudio = audio;
+    // BGM 재생 (bgmFile이 바뀔 때만 교체)
+    const newBgm = config.bgmFile || null;
+    if (newBgm !== this.currentBgmFile) {
+      if (this.bgmAudio) {
+        this.bgmAudio.pause();
+        this.bgmAudio = null;
+      }
+      this.currentBgmFile = newBgm;
+      if (newBgm) {
+        const audio = new Audio(`/sounds/bgm/${newBgm}.mp3`);
+        audio.loop = true;
+        audio.volume = 0.4;
+        audio.play().catch(() => {});
+        this.bgmAudio = audio;
+      }
     }
   }
 
@@ -567,6 +572,7 @@ export class Preview3D {
     if (this.bgmAudio) {
       this.bgmAudio.pause();
       this.bgmAudio = null;
+      this.currentBgmFile = null;
     }
     this.renderer.dispose();
   }

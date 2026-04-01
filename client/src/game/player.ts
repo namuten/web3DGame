@@ -7,6 +7,7 @@ import { updatePartyMemberHP } from '../ui/partyUI';
 
 import { createCharacterModel } from './characterModel';
 import { fireBullet } from './bullets';
+import { soundManager } from '../audio/soundManager';
 
 // ─── 플레이어 메시 초기 세팅 (2톤 세라믹 캡슐 + 데이지 꽃) ──────────
 export const playerMesh = new THREE.Group();
@@ -123,6 +124,7 @@ const MAX_CHARGE_TIME = 1.2; // 1.2초면 풀강
 
 // ─── 이동 속도 ────────────────────────────────────────────────
 const BASE_SPEED = 12;
+let _footstepTimer = 0;
 const playerVelocity = new THREE.Vector3();
 const targetRotation = new THREE.Quaternion();
 
@@ -226,6 +228,7 @@ export const initPlayer = () => {
       verticalVelocity = JUMP_FORCE;
       isOnGround = false;
       modelScaleYVel = 1.5;
+      soundManager.playJump();
       e.preventDefault();
     }
 
@@ -365,6 +368,13 @@ export const updatePlayer = (deltaTime: number) => {
 
   if (playerVelocity.lengthSq() > 0) {
     playerVelocity.normalize();
+
+    // 걸음 소리 (0.35초 간격)
+    _footstepTimer -= deltaTime;
+    if (_footstepTimer <= 0 && isOnGround) {
+      soundManager.playFootstep();
+      _footstepTimer = 0.35;
+    }
 
     // HP에 따른 동적 속도 계산 (HP 100 = 100%, HP 50 = 50%)
     const currentSpeed = BASE_SPEED * (hp / 100);
@@ -572,6 +582,11 @@ export const applyDamage = (newHP: number, direction?: THREE.Vector3) => {
   updateHPHUD();
 
   if (isDamage) {
+    if (hp <= 0) {
+      soundManager.playDeath();
+    } else {
+      soundManager.playHit();
+    }
     // 데미지를 입었을 때만 빨간색 깜빡임 효과
     damageFlashTimer = 0.15;
     originalMaterials.clear();

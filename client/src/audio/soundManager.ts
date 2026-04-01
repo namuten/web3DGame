@@ -32,6 +32,7 @@ let currentBGM: Howl | null = null;
 let currentBGMFile = '';
 let isBGMEnabled = true;
 let isSFXEnabled = true;
+let isTTSEnabled = true;
 
 // ─── Web Audio API 합성 헬퍼 ─────────────────────────────────
 
@@ -194,5 +195,14 @@ export const soundManager = {
 
   isSFXEnabled() {
     return isSFXEnabled;
+  },
+
+  toggleTTS() {
+    isTTSEnabled = !isTTSEnabled;
+    return isTTSEnabled;
+  },
+
+  isTTSEnabled() {
+    return isTTSEnabled;
   },
 };

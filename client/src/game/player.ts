@@ -213,6 +213,17 @@ export const initPlayer = () => {
           ${soundManager.isSFXEnabled() ? 'ON' : 'OFF'}
         </button>
       </div>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span>TTS Audio</span>
+        <button id="tts-toggle-btn" style="
+          background: ${soundManager.isTTSEnabled() ? '#4da655' : '#888'};
+          color: white; border: none; padding: 4px 10px; border-radius: 20px;
+          font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s ease;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        ">
+          ${soundManager.isTTSEnabled() ? 'ON' : 'OFF'}
+        </button>
+      </div>
     </div>
   `;
   document.body.appendChild(hint);
@@ -241,6 +252,23 @@ export const initPlayer = () => {
       
       // 토글 리액션으로 짧은 소리 효과 (켜졌을 때만)
       if (isEnabled) soundManager.playJump();
+    });
+  }
+
+  // TTS 토글 이벤트 핸들러
+  const ttsBtn = hint.querySelector('#tts-toggle-btn') as HTMLElement;
+  if (ttsBtn) {
+    ttsBtn.addEventListener('click', () => {
+      const isEnabled = soundManager.toggleTTS();
+      ttsBtn.style.background = isEnabled ? '#4da655' : '#888';
+      ttsBtn.innerText = isEnabled ? 'ON' : 'OFF';
+      ttsBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { ttsBtn.style.transform = 'scale(1)'; }, 100);
+      
+      // 토글 리액션으로 짧은 안내 음성 (켜졌을 때만)
+      if (isEnabled) {
+          import('../tts/tts').then(m => m.tts.speak("티티에스가 활성화되었습니다.", { voice: "유나", rate: 1.2 }));
+      }
     });
   }
 

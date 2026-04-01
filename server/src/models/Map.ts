@@ -12,6 +12,7 @@ export interface GameMap {
   bgColor: string;
   seed: number;
   isActive: boolean;
+  bgmFile?: string;
   createdAt?: Date;
 }
 
@@ -30,26 +31,28 @@ export const ensureTable = async () => {
       bg_color       VARCHAR(7)   DEFAULT '#A2D2FF',
       seed           INT          DEFAULT 42,
       is_active      BOOLEAN      DEFAULT TRUE,
+      bgm_file       VARCHAR(100) DEFAULT NULL,
       created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
   `);
 };
 
 const rowToMap = (row: any): GameMap => ({
-  id:             row.id,
-  name:           row.name,
-  theme:          row.theme,
-  floorSize:      row.floor_size,
-  playZone:       row.play_zone,
-  obstacleCount:  row.obstacle_count,
+  id: row.id,
+  name: row.name,
+  theme: row.theme,
+  floorSize: row.floor_size,
+  playZone: row.play_zone,
+  obstacleCount: row.obstacle_count,
   obstacleColors: typeof row.obstacle_colors === 'string'
     ? JSON.parse(row.obstacle_colors)
     : row.obstacle_colors,
-  fogDensity:     row.fog_density,
-  bgColor:        row.bg_color,
-  seed:           row.seed,
-  isActive:       Boolean(row.is_active),
-  createdAt:      row.created_at,
+  fogDensity: row.fog_density,
+  bgColor: row.bg_color,
+  seed: row.seed,
+  isActive: Boolean(row.is_active),
+  bgmFile: row.bgm_file ?? undefined,
+  createdAt: row.created_at,
 });
 
 export const findAllActive = async (): Promise<GameMap[]> => {
@@ -75,12 +78,12 @@ export const create = async (
 ): Promise<GameMap> => {
   const [result] = await pool.execute(
     `INSERT INTO maps (name, theme, floor_size, play_zone, obstacle_count,
-      obstacle_colors, fog_density, bg_color, seed, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      obstacle_colors, fog_density, bg_color, seed, is_active, bgm_file)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.name, data.theme, data.floorSize, data.playZone, data.obstacleCount,
       JSON.stringify(data.obstacleColors), data.fogDensity, data.bgColor,
-      data.seed, data.isActive,
+      data.seed, data.isActive, data.bgmFile ?? null,
     ]
   );
   const insertId = (result as any).insertId;
@@ -96,6 +99,7 @@ export const update = async (
     playZone: 'play_zone', obstacleCount: 'obstacle_count',
     obstacleColors: 'obstacle_colors', fogDensity: 'fog_density',
     bgColor: 'bg_color', seed: 'seed', isActive: 'is_active',
+    bgmFile: 'bgm_file',
   };
   const fields = Object.keys(data) as (keyof typeof data)[];
   if (!fields.length) return findById(id);

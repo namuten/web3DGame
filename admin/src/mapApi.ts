@@ -13,6 +13,7 @@ export interface MapData {
   bgColor: string;
   seed: number;
   isActive: boolean;
+  bgmFile?: string;
 }
 
 export const fetchMaps = async (): Promise<MapData[]> => {

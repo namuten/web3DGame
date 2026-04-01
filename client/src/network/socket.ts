@@ -15,6 +15,9 @@ import type { MonsterData } from '../game/monster';
 import { monsterManager } from '../game/monster';
 import { addPartyMember, updatePartyMemberHP, removePartyMember } from '../ui/partyUI';
 import { renderSnapshot } from '../ui/characterSelect';
+import { soundManager } from '../audio/soundManager';
+import { tts } from '../tts/tts';
+import { registerPlayerVoice, getVoiceOptions, unregisterPlayerVoice } from '../tts/characterVoices';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://namuten.duckdns.org';
@@ -42,6 +45,7 @@ export const connectWithCharacter = (selection: CharacterSelection) => {
     flowerType: selection.flowerType,
     visorType: selection.visorType,
   };
+  registerPlayerVoice('local', selection.flowerType);
   socket.connect();
 };
 
@@ -60,6 +64,7 @@ socket.on('current_players', (players: Record<string, any>) => {
         players[id].visorType,
         players[id].hp
       );
+      registerPlayerVoice(id, players[id].flowerType);
     } else {
       console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
       setPlayerColor(
@@ -99,6 +104,7 @@ socket.on('player_joined', (playerData: any) => {
     playerData.visorType,
     playerData.hp
   );
+  registerPlayerVoice(playerData.id, playerData.flowerType);
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)
@@ -126,6 +132,17 @@ socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:numb
 // 채팅 메시지 수신
 socket.on('CHAT_MESSAGE', (data: { sender: string, senderId: string, text: string }) => {
   appendMessage(data.sender, data.text, '#00ffaa');
+  
+  // TTS 재생 (활성화 시에만, 시스템/디버깅 메시지 제외)
+  const senderUpper = data.sender.toUpperCase();
+  const isSystemMsg = senderUpper.includes('SYSTEM') || senderUpper.includes('DEBUG');
+  
+  if (soundManager.isTTSEnabled() && !isSystemMsg) {
+    const voiceId = data.senderId === socket.id ? 'local' : data.senderId;
+    const opts = getVoiceOptions(voiceId);
+    tts.speak(data.text, opts, voiceId); // senderId 전달
+  }
+
   if (data.senderId && otherPlayers[data.senderId]) {
     showChatBubble(otherPlayers[data.senderId], data.text);
   }
@@ -148,6 +165,7 @@ socket.on('player_left', (id: string) => {
     delete otherPlayers[id];
     delete nameTags[id];
     removePartyMember(id);
+    unregisterPlayerVoice(id);
   }
 });
 
@@ -251,6 +269,12 @@ export const broadcastLocalPosition = () => {
 export const sendChatMessage = (text: string) => {
     socket.emit('CHAT_MESSAGE', { text });
     appendMessage(localPlayerName, text, '#ffcc00');
+
+    // 내 메시지 TTS (자청해서 듣기 - 활성화 시에만)
+    if (soundManager.isTTSEnabled()) {
+        const opts = getVoiceOptions('local');
+        tts.speak(text, opts, 'local'); // 자신은 'local'로 구분
+    }
 };
 
 export const sendShoot = (origin: THREE.Vector3, direction: THREE.Vector3) => {
@@ -264,7 +288,11 @@ export const sendShoot = (origin: THREE.Vector3, direction: THREE.Vector3) => {
 
 socket.on('MONSTER_SPAWN', (data: MonsterData) => {
     monsterManager.spawn(data);
-    appendMessage('Boss Slime', '거대 슬라임이 나타났습니다! 도망가세요!', '#ff0000');
+    const msg = '거대 슬라임이 나타났습니다! 도망가세요!';
+    appendMessage('Boss Slime', msg, '#ff0000');
+    
+    // 시스템 음성 안내
+    tts.speak(msg, { voice: 'Grandpa', rate: 0.8, pitch: 0.5 });
     
     // 몬스터 등장 오버레이 표시
     const banner = document.createElement('div');

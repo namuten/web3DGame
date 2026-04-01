@@ -30,6 +30,9 @@ let currentTheme: SoundTheme = 'cute';
 let masterVolume = 1.0;
 let currentBGM: Howl | null = null;
 let currentBGMFile = '';
+let isBGMEnabled = true;
+let isSFXEnabled = true;
+let isTTSEnabled = true;
 
 // ─── Web Audio API 합성 헬퍼 ─────────────────────────────────
 
@@ -117,6 +120,7 @@ export const soundManager = {
   },
 
   _play(event: SoundEvent) {
+    if (!isSFXEnabled) return;
     const params = THEMES[currentTheme][event];
     if (params.notes?.length) {
       synthMelody(params);
@@ -138,6 +142,8 @@ export const soundManager = {
 
     currentBGM?.stop();
     currentBGMFile = bgmFile;
+
+    if (!isBGMEnabled) return;
 
     const ctx = Howler.ctx as AudioContext | null;
     const doPlay = () => {
@@ -161,5 +167,42 @@ export const soundManager = {
     currentBGM?.stop();
     currentBGM = null;
     currentBGMFile = '';
+  },
+
+  toggleBGM() {
+    isBGMEnabled = !isBGMEnabled;
+    if (isBGMEnabled) {
+      if (currentBGMFile) {
+        const file = currentBGMFile;
+        currentBGMFile = ''; // Reset to force reload in playBGM
+        this.playBGM(file);
+      }
+    } else {
+      currentBGM?.stop();
+      currentBGM = null;
+    }
+    return isBGMEnabled;
+  },
+
+  isBGMEnabled() {
+    return isBGMEnabled;
+  },
+
+  toggleSFX() {
+    isSFXEnabled = !isSFXEnabled;
+    return isSFXEnabled;
+  },
+
+  isSFXEnabled() {
+    return isSFXEnabled;
+  },
+
+  toggleTTS() {
+    isTTSEnabled = !isTTSEnabled;
+    return isTTSEnabled;
+  },
+
+  isTTSEnabled() {
+    return isTTSEnabled;
   },
 };

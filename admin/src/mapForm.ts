@@ -55,7 +55,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   };
 
   container.innerHTML = `
-    <h2 style="margin-bottom:20px;font-size:16px;">${map ? '맵 편집' : '새 맵'}</h2>
+    <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">${map ? '맵 편집' : '새 맵'}</div>
     <div class="form-inner">
       <div class="preview-col">
         <canvas id="map-preview-canvas" tabindex="0"></canvas>
@@ -129,7 +129,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   const canvas = document.getElementById('map-preview-canvas') as HTMLCanvasElement;
   const parent = canvas.parentElement;
   canvas.width = parent ? parent.clientWidth : 600;
-  canvas.height = 600;
+  canvas.height = parent ? parent.clientHeight : 600;
   if (preview) preview.destroy();
   preview = new Preview3D(canvas);
 

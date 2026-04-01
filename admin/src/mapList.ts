@@ -3,6 +3,25 @@ import { MapData, deleteMap } from './mapApi';
 type OnSelect = (map: MapData) => void;
 type OnNew = () => void;
 
+let currentAudio: HTMLAudioElement | null = null;
+let currentPlayingId: number | null = null;
+
+const stopBGM = () => {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  currentPlayingId = null;
+};
+
+const updatePlayButtons = () => {
+  document.querySelectorAll<HTMLButtonElement>('[data-bgm-id]').forEach(btn => {
+    const id = Number(btn.dataset.bgmId);
+    btn.textContent = id === currentPlayingId ? '⏹' : '🎵';
+    btn.title = id === currentPlayingId ? 'BGM 중지' : 'BGM 재생';
+  });
+};
+
 export const renderMapList = (
   maps: MapData[],
   selectedId: number | null,
@@ -42,6 +61,31 @@ export const renderMapList = (
 
     const actions = document.createElement('div');
     actions.className = 'char-item-actions';
+
+    // BGM 재생 버튼
+    if (map.bgmFile) {
+      const bgmBtn = document.createElement('button');
+      bgmBtn.dataset.bgmId = String(map.id);
+      bgmBtn.textContent = map.id === currentPlayingId ? '⏹' : '🎵';
+      bgmBtn.title = map.id === currentPlayingId ? 'BGM 중지' : 'BGM 재생';
+      bgmBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentPlayingId === map.id) {
+          stopBGM();
+        } else {
+          stopBGM();
+          const audio = new Audio(`/sounds/bgm/${map.bgmFile}.mp3`);
+          audio.loop = true;
+          audio.volume = 0.5;
+          audio.play().catch(() => {});
+          audio.addEventListener('ended', () => { currentPlayingId = null; updatePlayButtons(); });
+          currentAudio = audio;
+          currentPlayingId = map.id!;
+        }
+        updatePlayButtons();
+      });
+      actions.appendChild(bgmBtn);
+    }
 
     const editBtn = document.createElement('button');
     editBtn.textContent = '✏️';

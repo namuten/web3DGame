@@ -40,7 +40,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { name, theme, floorSize, playZone, obstacleCount,
-            obstacleColors, fogDensity, bgColor, seed, isActive } = req.body;
+      obstacleColors, fogDensity, bgColor, seed, isActive, bgmFile } = req.body;
 
     if (!name || !theme) {
       return res.status(400).json({ error: 'name and theme are required' });
@@ -72,12 +72,13 @@ router.post('/', async (req: Request, res: Response) => {
       theme,
       floorSize: fSize,
       playZone: pZone,
-      obstacleCount:  Number(obstacleCount  ?? 80),
+      obstacleCount: Number(obstacleCount ?? 80),
       obstacleColors,
-      fogDensity:     Number(fogDensity     ?? 0.005),
-      bgColor:        bgColor        ?? '#A2D2FF',
-      seed:           Number(seed           ?? 42),
-      isActive:       isActive       ?? true,
+      fogDensity: Number(fogDensity ?? 0.005),
+      bgColor: bgColor ?? '#A2D2FF',
+      seed: Number(seed ?? 42),
+      isActive: isActive ?? true,
+      bgmFile: bgmFile ?? undefined,
     });
     res.status(201).json(map);
   } catch (err: any) {

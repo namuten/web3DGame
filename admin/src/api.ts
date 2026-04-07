@@ -10,6 +10,7 @@ export interface CharacterData {
   visorColor: string;
   flowerType: string;
   visorType: string;
+  voiceId?: string;
 }
 
 export const fetchCharacters = async (): Promise<CharacterData[]> => {

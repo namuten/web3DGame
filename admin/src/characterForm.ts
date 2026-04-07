@@ -1,5 +1,6 @@
 import { CharacterData, createCharacter, updateCharacter } from './api';
 import { Preview3D } from './preview3d';
+import { VOICE_PRESETS } from './voicePresets';
 
 let preview: Preview3D | null = null;
 
@@ -11,6 +12,7 @@ const defaultChar = (): Omit<CharacterData, '_id'> => ({
   visorColor: '#333333',
   flowerType: 'daisy',
   visorType: 'normal',
+  voiceId: 'default',
 });
 
 export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
@@ -73,6 +75,23 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
             <option value="heart" ${data.visorType === 'heart' ? 'selected' : ''}>Heart (하트 모양)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>목소리 종류</label>
+          <div style="display:flex; gap:8px;">
+            <select id="f-voice" style="flex:1;">
+              <option value="default" ${data.voiceId === 'default' ? 'selected' : ''}>Default (기본)</option>
+              <option value="daisy" ${data.voiceId === 'daisy' ? 'selected' : ''}>Daisy (나긋나긋)</option>
+              <option value="rose" ${data.voiceId === 'rose' ? 'selected' : ''}>Rose (발랄함)</option>
+              <option value="tulip" ${data.voiceId === 'tulip' ? 'selected' : ''}>Tulip (남성톤1)</option>
+              <option value="sunflower" ${data.voiceId === 'sunflower' ? 'selected' : ''}>Sunflower (허스키)</option>
+              <option value="clover" ${data.voiceId === 'clover' ? 'selected' : ''}>Clover (귀요미)</option>
+              <option value="giant" ${data.voiceId === 'giant' ? 'selected' : ''}>Giant (거인)</option>
+              <option value="child" ${data.voiceId === 'child' ? 'selected' : ''}>Child (어린이)</option>
+              <option value="ghost" ${data.voiceId === 'ghost' ? 'selected' : ''}>Ghost (유령)</option>
+            </select>
+            <button id="listen-btn" style="white-space:nowrap; padding:0 12px; background:#4dabf7; color:white; border:none; border-radius:4px; cursor:pointer;">🔊 듣기</button>
+          </div>
+        </div>
         <div class="form-actions">
           <button id="save-btn">저장</button>
           <button id="cancel-btn">취소</button>
@@ -129,6 +148,34 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
     const color = (document.getElementById('f-visor') as HTMLInputElement).value;
     preview?.updateColor('visor', color, type);
   });
+  
+  // 목소리 들어보기
+  document.getElementById('listen-btn')!.addEventListener('click', () => {
+    const voiceId = (document.getElementById('f-voice') as HTMLSelectElement).value;
+    const preset = VOICE_PRESETS[voiceId] || VOICE_PRESETS["default"];
+    const charName = (document.getElementById('f-name') as HTMLInputElement).value.trim() || "캐릭터";
+    const text = `안녕하세요! 제 이름은 ${charName}입니다. 현재 목소리 출력 테스트 중입니다. 가나다라마바사, 남무열 바보!`;
+    
+    if (!window.speechSynthesis) {
+      alert("이 브라우저는 음성 합성을 지원하지 않습니다.");
+      return;
+    }
+    
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = preset.rate || 1.0;
+    utter.pitch = preset.pitch || 1.0;
+    utter.lang = preset.lang || "ko-KR";
+    
+    // 브라우저 보이스 매칭 시도
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => v.name.includes(preset.voice || ""));
+    if (preferredVoice) {
+      utter.voice = preferredVoice;
+    }
+    
+    window.speechSynthesis.speak(utter);
+  });
 
   // 저장
   document.getElementById('save-btn')!.addEventListener('click', async () => {
@@ -140,6 +187,7 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
       visorColor: (document.getElementById('f-visor') as HTMLInputElement).value,
       flowerType: (document.getElementById('f-type') as HTMLSelectElement).value,
       visorType: (document.getElementById('f-visor-type') as HTMLSelectElement).value,
+      voiceId: (document.getElementById('f-voice') as HTMLSelectElement).value,
     };
 
     if (!payload.name) { alert('이름을 입력해주세요.'); return; }

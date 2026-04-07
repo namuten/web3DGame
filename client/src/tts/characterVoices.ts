@@ -11,16 +11,16 @@ export const VOICE_PRESETS: Record<string, TTSOptions> = {
   tulip:     { voice: "Eddy",    rate: 1.0,  pitch: 1.1,  lang: "ko-KR" },
   sunflower: { voice: "Reed",    rate: 1.1,  pitch: 0.95, lang: "ko-KR" },
   clover:    { voice: "Flo",     rate: 1.1,  pitch: 1.35, lang: "ko-KR" },
+  giant:     { voice: "유나",    rate: 0.6,  pitch: 0.5,  lang: "ko-KR" },
+  child:     { voice: "유나",    rate: 1.25, pitch: 1.8,  lang: "ko-KR" },
+  ghost:     { voice: "유나",    rate: 0.7,  pitch: 0.2,  lang: "ko-KR" },
   default:   { voice: "유나",    rate: 1.0,  pitch: 1.0,  lang: "ko-KR" },
 };
 
-/**
- * 특정 유저의 음성 설정을 등록합니다.
- */
-export function registerPlayerVoice(senderId: string, flowerType: string): void {
-  const preset = VOICE_PRESETS[flowerType] || VOICE_PRESETS["default"];
+export function registerPlayerVoice(senderId: string, voiceId: string): void {
+  const preset = VOICE_PRESETS[voiceId] || VOICE_PRESETS["default"];
   voiceMap.set(senderId, preset);
-  console.log(`[TTS] Registered voice for ${senderId}: ${flowerType}`);
+  console.log(`[TTS] Registered voice for ${senderId}: ${voiceId}`);
 }
 
 /**

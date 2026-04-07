@@ -85,6 +85,7 @@ io.on('connection', (socket: Socket) => {
     visorColor:  auth?.visorColor  ?? '#333333',
     flowerType:  auth?.flowerType  ?? 'daisy',
     visorType:   auth?.visorType   ?? 'normal',
+    voiceId:     auth?.voiceId     ?? 'default',
     characterId: auth?.characterId ?? null,
     hp: 100,
   };

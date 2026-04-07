@@ -10,6 +10,7 @@ export interface Character {
   visorColor: string;
   flowerType: string;
   visorType: string;
+  voiceId?: string; // 추가
   createdAt?: Date;
 }
 
@@ -25,15 +26,18 @@ export const ensureTable = async () => {
       visorColor  VARCHAR(7)    NOT NULL,
       flowerType  VARCHAR(20)   NOT NULL DEFAULT 'daisy',
       visorType   VARCHAR(20)   NOT NULL DEFAULT 'normal',
+      voiceId     VARCHAR(20)   NOT NULL DEFAULT 'default',
       createdAt   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
   `);
 
   try {
     await pool.execute(`ALTER TABLE characters ADD COLUMN visorType VARCHAR(20) NOT NULL DEFAULT 'normal'`);
-  } catch (e) {
-    // Ignore if column already exists
-  }
+  } catch (e) {}
+
+  try {
+    await pool.execute(`ALTER TABLE characters ADD COLUMN voiceId VARCHAR(20) NOT NULL DEFAULT 'default'`);
+  } catch (e) {}
 };
 
 const rowToChar = (row: any): Character => ({
@@ -45,6 +49,7 @@ const rowToChar = (row: any): Character => ({
   visorColor:  row.visorColor,
   flowerType:  row.flowerType,
   visorType:   row.visorType || 'normal',
+  voiceId:     row.voiceId || 'default',
   createdAt:   row.createdAt,
 });
 
@@ -62,8 +67,8 @@ export const findById = async (id: string): Promise<Character | null> => {
 export const create = async (data: Omit<Character, '_id' | 'createdAt'>): Promise<Character> => {
   const id = uuidv4();
   await pool.execute(
-    'INSERT INTO characters (id, name, description, bodyColor, flowerColor, visorColor, flowerType, visorType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, data.name, data.description ?? null, data.bodyColor, data.flowerColor, data.visorColor, data.flowerType, data.visorType || 'normal']
+    'INSERT INTO characters (id, name, description, bodyColor, flowerColor, visorColor, flowerType, visorType, voiceId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, data.name, data.description ?? null, data.bodyColor, data.flowerColor, data.visorColor, data.flowerType, data.visorType || 'normal', data.voiceId || 'default']
   );
   return (await findById(id))!;
 };

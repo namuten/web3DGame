@@ -44,8 +44,9 @@ export const connectWithCharacter = (selection: CharacterSelection) => {
     visorColor: selection.visorColor,
     flowerType: selection.flowerType,
     visorType: selection.visorType,
+    voiceId: selection.voiceId,
   };
-  registerPlayerVoice('local', selection.flowerType);
+  registerPlayerVoice('local', selection.voiceId);
   socket.connect();
 };
 
@@ -64,7 +65,7 @@ socket.on('current_players', (players: Record<string, any>) => {
         players[id].visorType,
         players[id].hp
       );
-      registerPlayerVoice(id, players[id].flowerType);
+      registerPlayerVoice(id, players[id].voiceId || players[id].flowerType);
     } else {
       console.log(`[Socket] Setting local player info: Body=${players[id].bodyColor}, HP=${players[id].hp}`);
       setPlayerColor(
@@ -104,7 +105,7 @@ socket.on('player_joined', (playerData: any) => {
     playerData.visorType,
     playerData.hp
   );
-  registerPlayerVoice(playerData.id, playerData.flowerType);
+  registerPlayerVoice(playerData.id, playerData.voiceId || playerData.flowerType);
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)

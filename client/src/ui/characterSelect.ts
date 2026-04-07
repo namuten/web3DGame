@@ -12,6 +12,7 @@ export interface CharacterSelection {
   visorColor: string;
   flowerType: string;
   visorType: string;
+  voiceId: string;
 }
 
 interface CharacterData {
@@ -23,6 +24,7 @@ interface CharacterData {
   visorColor: string;
   flowerType: string;
   visorType?: string;
+  voiceId?: string;
 }
 
 export const renderSnapshot = (char: { bodyColor: string; flowerColor: string; visorColor: string; flowerType: string; visorType?: string }): Promise<string> => {
@@ -172,6 +174,7 @@ export const showCharacterSelect = (): Promise<CharacterSelection> => {
           visorColor: selectedChar!.visorColor,
           flowerType: selectedChar!.flowerType,
           visorType: selectedChar!.visorType || 'normal',
+          voiceId: selectedChar!.voiceId || 'default',
         });
       }, 400);
     });

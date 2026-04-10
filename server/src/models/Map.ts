@@ -12,8 +12,9 @@ export interface GameMap {
   bgColor: string;
   seed: number;
   isActive: boolean;
-  bgmFile?: string;
-  monsterId?: number | null;
+  bgmFile?: string | null | undefined;
+  monsterId?: number | null | undefined;
+
 
   createdAt?: Date;
 }

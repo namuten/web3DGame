@@ -68,7 +68,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'playZone must be less than (floorSize / 2) - 10' });
     }
 
-    const map = await MapModel.create({
+    const createData: Omit<MapModel.GameMap, 'id' | 'createdAt'> = {
       name,
       theme,
       floorSize: fSize,
@@ -81,9 +81,10 @@ router.post('/', async (req: Request, res: Response) => {
       isActive: isActive ?? true,
       bgmFile: bgmFile ?? null,
       monsterId: (monsterId !== undefined && monsterId !== null) ? Number(monsterId) : null,
+    };
 
+    const map = await MapModel.create(createData);
 
-    });
 
     res.status(201).json(map);
   } catch (err: any) {

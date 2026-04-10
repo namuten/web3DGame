@@ -326,8 +326,7 @@ setInterval(() => {
       const dx = target.position.x - monster.position.x;
       const dz = target.position.z - monster.position.z;
       const mag = Math.sqrt(dx*dx + dz*dz);
-      const freezeThreshold = 0.3; // 캐릭터 크기 기준 임계값
-      const scaleRadius = 5.0 * (monster.scale || 1.0);
+      const scaleRadius = 5.0; // 스케일이 1.0으로 고정되었으므로 5.0 유지
 
       if (mag > 0.1) {
         monster.position.x += (dx / mag) * monster.speed;
@@ -335,7 +334,6 @@ setInterval(() => {
       }
 
       // 충돌(Touch) 감지: 거리 = scaleRadius 유닛 미만 (스케일에 비례)
-      const scaleRadius = 5.0; // 스케일이 1.0으로 고정되었으므로 5.0 유지
       if (mag < scaleRadius) {
         target.hp = 0;
         io.to(mapId).emit('PLAYER_DAMAGED', {

@@ -58,7 +58,10 @@ services:
       - DB_NAME=twdb
       - DB_USER=twuser
       - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./server/public/uploads:/app/public/uploads
     restart: always
+
     logging:
       driver: "json-file"
       options:

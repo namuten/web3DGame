@@ -13,7 +13,8 @@ export interface GameMap {
   seed: number;
   isActive: boolean;
   bgmFile?: string;
-  monsterId?: number;
+  monsterId?: number | null;
+
   createdAt?: Date;
 }
 

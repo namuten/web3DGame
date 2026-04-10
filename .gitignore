@@ -9,3 +9,4 @@ server/dist/
 .env
 .claudedev
 .claude/
+blender/

@@ -147,7 +147,7 @@ class MonsterManager {
         this.targetScale = scale;
     }
 
-    animate(time: number, deltaTime: number = 0.016, camera?: THREE.Camera) {
+    animate(_time: number, deltaTime: number = 0.016, _camera?: THREE.Camera) {
         if (!this.monsterMesh) return;
 
         // 1. 애니메이션 믹서 및 상태 전환

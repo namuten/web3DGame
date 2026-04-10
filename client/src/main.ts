@@ -2,6 +2,7 @@ import './style.css';
 import * as THREE from 'three';
 import { renderer, mountRenderer } from './engine/renderer';
 import { scene } from './engine/scene';
+import { setupEnvMap } from './engine/envMap';
 import { camera } from './engine/camera';
 import { soundManager } from './audio/soundManager';
 import { initWorld, worldCollidables, updateWorld } from './game/world';
@@ -35,6 +36,9 @@ import { updateFloatingTexts } from './game/floatingText';
 
 // 화면에 렌더러 등록
 mountRenderer('app');
+
+// HDR 환경맵 설정 (슬라임 반사/굴절 품질 향상)
+setupEnvMap(scene, renderer);
 
 // 플레이어 초기 세팅
 initPlayer();

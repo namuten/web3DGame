@@ -156,7 +156,7 @@ io.on('connection', (socket: Socket) => {
               z: (Math.random() - 0.5) * limit * 0.8
             },
             targetId: null,
-            speed: 0.45,
+            speed: 0.8,
             alive: true,
             hp: 300,
             maxHp: 300,
@@ -211,7 +211,7 @@ io.on('connection', (socket: Socket) => {
       const monster = monsters[room];
       if (monster && monster.alive) {
         monster.hp -= data.damage;
-        monster.scale = Math.max(0.15, monster.hp / monster.maxHp);
+        // monster.scale = Math.max(0.15, monster.hp / monster.maxHp); // 크기 감소 로직 삭제
 
         if (monster.hp <= 0) {
           monster.hp = 0;
@@ -220,7 +220,7 @@ io.on('connection', (socket: Socket) => {
           delete monsters[room];
           io.to(room).emit('CHAT_MESSAGE', { sender: 'System', text: '보스 슬라임을 물리쳤습니다!' });
         } else {
-          io.to(room).emit('MONSTER_DAMAGED', { id: monster.id, hp: monster.hp, maxHp: monster.maxHp, scale: monster.scale });
+          io.to(room).emit('MONSTER_DAMAGED', { id: monster.id, hp: monster.hp, maxHp: monster.maxHp, scale: 1.0 });
         }
       }
       return;
@@ -329,12 +329,13 @@ setInterval(() => {
       const freezeThreshold = 0.3; // 캐릭터 크기 기준 임계값
       const scaleRadius = 5.0 * (monster.scale || 1.0);
 
-      if (mag > 0.1 && (monster.scale === undefined || monster.scale > freezeThreshold)) {
+      if (mag > 0.1) {
         monster.position.x += (dx / mag) * monster.speed;
         monster.position.z += (dz / mag) * monster.speed;
       }
 
       // 충돌(Touch) 감지: 거리 = scaleRadius 유닛 미만 (스케일에 비례)
+      const scaleRadius = 5.0; // 스케일이 1.0으로 고정되었으므로 5.0 유지
       if (mag < scaleRadius) {
         target.hp = 0;
         io.to(mapId).emit('PLAYER_DAMAGED', {
@@ -345,10 +346,10 @@ setInterval(() => {
         });
         console.log(`[Monster] 슬라임이 ${target.id}를 처치함!`);
 
-        // 캐릭터 처치 시 슬라임 체력 회복 및 크기 원상 복구 증가
+        // 캐릭터 처치 시 슬라임 체력 회복 (크기는 1.0 유지)
         monster.hp = Math.min(monster.maxHp, monster.hp + 50);
-        monster.scale = Math.max(0.15, monster.hp / monster.maxHp);
-        io.to(mapId).emit('MONSTER_DAMAGED', { id: monster.id, hp: monster.hp, maxHp: monster.maxHp, scale: monster.scale });
+        monster.scale = 1.0;
+        io.to(mapId).emit('MONSTER_DAMAGED', { id: monster.id, hp: monster.hp, maxHp: monster.maxHp, scale: 1.0 });
       }
     }
 

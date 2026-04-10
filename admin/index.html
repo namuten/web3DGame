@@ -1,135 +1,250 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html class="light" lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Game Admin</title>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Dreamscape Codex - Admin</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-secondary": "#ffffff",
+            "surface-container-low": "#f0f3ff",
+            "on-error-container": "#93000a",
+            "outline": "#72787f",
+            "background": "#f9f9ff",
+            "secondary-fixed": "#ffd9e4",
+            "surface-dim": "#d3daea",
+            "on-surface": "#151c27",
+            "on-primary-fixed": "#001d32",
+            "on-primary-container": "#275b82",
+            "on-secondary-container": "#7c3f58",
+            "on-secondary-fixed-variant": "#6e334c",
+            "inverse-on-surface": "#ebf1ff",
+            "outline-variant": "#c1c7cf",
+            "on-primary": "#ffffff",
+            "primary": "#30628a",
+            "on-primary-fixed-variant": "#104a70",
+            "primary-fixed": "#cde5ff",
+            "error": "#ba1a1a",
+            "on-tertiary-container": "#46577c",
+            "on-tertiary": "#ffffff",
+            "secondary-fixed-dim": "#ffb0cd",
+            "inverse-primary": "#9bcbf8",
+            "surface-bright": "#f9f9ff",
+            "on-tertiary-fixed": "#061a3d",
+            "secondary-container": "#ffb0cd",
+            "on-surface-variant": "#41474e",
+            "surface": "#f9f9ff",
+            "inverse-surface": "#2a313d",
+            "primary-container": "#a2d2ff",
+            "error-container": "#ffdad6",
+            "surface-container": "#e7eefe",
+            "on-secondary-fixed": "#390720",
+            "tertiary-container": "#bccdf9",
+            "on-background": "#151c27",
+            "surface-tint": "#30628a",
+            "primary-fixed-dim": "#9bcbf8",
+            "on-tertiary-fixed-variant": "#35466b",
+            "tertiary-fixed": "#d8e2ff",
+            "surface-variant": "#dce2f3",
+            "on-error": "#ffffff",
+            "tertiary-fixed-dim": "#b5c6f2",
+            "surface-container-lowest": "#ffffff",
+            "secondary": "#8a4a64",
+            "surface-container-highest": "#dce2f3",
+            "tertiary": "#4d5e84",
+            "surface-container-high": "#e2e8f8"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "fontFamily": {
+            "headline": ["Space Grotesk"],
+            "body": ["Plus Jakarta Sans"],
+            "label": ["Space Grotesk"]
+          }
+        },
+      },
+    }
+  </script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: monospace; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; }
-    #app { display: flex; flex-direction: column; height: 100vh; }
-    header { background: #333; color: #fff; padding: 12px 20px; font-size: 18px; display: flex; align-items: center; gap: 16px; }
-    #tab-bar { display: flex; gap: 0; }
-    .tab-btn { padding: 4px 18px; background: #555; border: none; color: #ccc; cursor: pointer; font-size: 13px; font-family: monospace; border-radius: 4px 4px 0 0; }
-    .tab-btn.active { background: #f5f5f5; color: #333; }
-    .layout { display: flex; flex: 1; overflow: hidden; min-height: 0; }
-    #list-panel { width: 240px; min-width: 240px; border-right: 1px solid #ddd; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
-    #map-list, #character-list { flex: 1; overflow-y: auto; }
-    #form-panel { flex: 1; padding: 16px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; min-height: 0; }
-    #map-form-container, #form-container { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-    .char-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #eee; cursor: pointer; }
-    .char-item:hover { background: #f0f0f0; }
-    .char-item.selected { background: #e8f4ff; border-left: 3px solid #4dabf7; }
-    .char-item-name { font-size: 14px; }
-    .char-item-actions button { background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px 4px; }
-    #add-btn, #map-add-btn { margin: 12px; padding: 10px; background: #4dabf7; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-family: monospace; }
-    #add-btn:hover, #map-add-btn:hover { background: #339af0; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; }
-    .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
-      font-size: 14px; font-family: monospace;
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
-    .form-group input[type="color"] { height: 40px; padding: 2px; cursor: pointer; }
-    .form-actions { display: flex; gap: 8px; margin-top: 20px; }
-    .form-actions button { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-family: monospace; }
-    #save-btn { background: #51cf66; color: #fff; }
-    #save-btn:hover { background: #40c057; }
-    #cancel-btn { background: #dee2e6; color: #333; }
-    #empty-state { padding: 20px; text-align: center; color: #aaa; font-size: 13px; }
-    /* Map form layout */
-    .form-inner {
-      display: flex;
-      flex-direction: row;
-      gap: 16px;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    h1, h2, h3, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
-    .preview-col {
-      flex: 1;
-      background: #eef2f5;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
-      border: 1px solid #ddd;
-      min-height: 0;
+    .tab-btn.active {
+      background-color: #a2d2ff;
+      color: #30628a;
     }
-    .preview-col canvas {
-      width: 100% !important;
-      height: 100% !important;
-      display: block;
-      outline: none;
+    .tab-btn.active span {
+      font-variation-settings: 'FILL' 1;
     }
-    .fields-col {
-      width: 300px;
-      min-width: 300px;
-      max-width: 300px;
-      background: #fff;
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      border: 1px solid #eaeaea;
-      overflow-y: auto;
-    }
-    .form-group { margin-bottom: 10px; }
-    .color-row { display: flex; gap: 8px; align-items: center; }
-    .form-group label { font-weight: bold; color: #444; margin-bottom: 4px; }
-    input[type="range"] { width: 100%; margin-top: 4px; }
+    /* Hide scrollbars but keep functionality */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body>
-  <div id="app">
-    <header>
-      🌸 Game Admin
-      <div id="tab-bar">
-        <button id="tab-characters" class="tab-btn active">캐릭터</button>
-        <button id="tab-maps" class="tab-btn">맵</button>
-        <button id="tab-terms" class="tab-btn">용어</button>
+<body class="bg-background text-on-surface overflow-x-hidden">
+  <div id="app" class="flex">
+    <!-- SideNavBar -->
+    <aside class="fixed left-0 top-0 h-full w-72 flex flex-col py-8 z-40 bg-[#f9f9ff] rounded-r-[3rem] shadow-[10px_0_30px_rgba(21,28,39,0.03)] hidden md:flex">
+      <div class="px-8 mb-12">
+        <span class="text-[#30628a] font-['Space_Grotesk'] font-black text-2xl tracking-tighter">Dreamscape Codex</span>
+      </div>
+      <div class="flex items-center px-8 mb-10">
+        <div class="w-12 h-12 rounded-full bg-primary-container mr-4 overflow-hidden border-2 border-primary/20">
+          <img alt="Admin Profile" src="https://api.dicebear.com/7.x/bottts/svg?seed=Admin" class="w-full h-full object-cover"/>
+        </div>
+        <div>
+          <p class="text-[#30628a] font-['Plus_Jakarta_Sans'] font-bold">Admin</p>
+          <p class="text-[#4d5e84] text-xs opacity-70 italic">Grand Architect</p>
+        </div>
+      </div>
+      <nav class="flex-1 space-y-2">
+        <!-- Tab Buttons -->
+        <button id="tab-characters" class="tab-btn w-[calc(100%-2rem)] mx-4 py-3 flex items-center justify-start px-6 rounded-full transition-all group hover:bg-[#bccdf9]/30 text-[#4d5e84]">
+          <span class="material-symbols-outlined mr-4 group-hover:scale-110 transition-transform">menu_book</span>
+          <span class="font-semibold">캐릭터 관리</span>
+        </button>
+        <button id="tab-maps" class="tab-btn w-[calc(100%-2rem)] mx-4 py-3 flex items-center justify-start px-6 rounded-full transition-all group hover:bg-[#bccdf9]/30 text-[#4d5e84]">
+          <span class="material-symbols-outlined mr-4 group-hover:scale-110 transition-transform">map</span>
+          <span class="font-semibold">맵 관리</span>
+        </button>
+        <button id="tab-terms" class="tab-btn w-[calc(100%-2rem)] mx-4 py-3 flex items-center justify-start px-6 rounded-full transition-all group hover:bg-[#bccdf9]/30 text-[#4d5e84]">
+          <span class="material-symbols-outlined mr-4 group-hover:scale-110 transition-transform">history_edu</span>
+          <span class="font-semibold">용어 관리</span>
+        </button>
+      </nav>
+      <div class="px-8 mt-auto pt-8 border-t border-primary/10">
+        <div class="bg-surface-container-low p-4 rounded-xl">
+          <p class="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-1">System Status</p>
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span class="text-xs font-semibold text-primary">시스템 정상</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- TopAppBar -->
+    <header class="fixed top-0 left-0 md:left-72 right-0 z-30 bg-[#f9f9ff]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(21,28,39,0.04)] flex items-center justify-between px-8 py-4">
+      <div class="flex items-center gap-2">
+        <h1 id="page-title" class="text-2xl font-bold text-[#30628a] font-['Space_Grotesk'] tracking-tight">캐릭터 관리</h1>
+      </div>
+      <div class="flex items-center gap-6">
+        <div class="relative hidden lg:block">
+          <input class="bg-surface-container-high border-none rounded-full py-2 px-6 w-64 focus:ring-2 focus:ring-primary text-sm transition-all" placeholder="검색어를 입력하세요..." type="text"/>
+          <span class="material-symbols-outlined absolute right-4 top-2 text-on-surface-variant text-lg">search</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <button class="w-10 h-10 flex items-center justify-center rounded-full text-[#30628a] hover:bg-[#a2d2ff]/20 transition-colors duration-300">
+            <span class="material-symbols-outlined">notifications</span>
+          </button>
+          <button class="w-10 h-10 flex items-center justify-center rounded-full text-[#30628a] hover:bg-[#a2d2ff]/20 transition-colors duration-300">
+            <span class="material-symbols-outlined">settings</span>
+          </button>
+        </div>
       </div>
     </header>
 
-    <div id="characters-section">
-      <div class="layout">
-        <div id="list-panel">
-          <button id="add-btn">+ 새 캐릭터</button>
-          <div id="character-list"></div>
+    <!-- Main Content Wrapper -->
+    <main class="flex-1 pt-24 pb-6 px-6 md:ml-72 h-screen flex flex-col overflow-hidden">
+      
+      <!-- Characters Section -->
+      <section id="characters-section" class="flex-1 flex flex-col gap-4 overflow-hidden">
+        <div class="flex items-center justify-between flex-shrink-0">
+          <h2 class="text-2xl font-headline font-bold text-primary">캐릭터 목록</h2>
+          <button id="add-btn" class="px-5 py-2 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all text-xs font-bold">
+            <span class="material-symbols-outlined text-base">add_circle</span>
+            새 캐릭터 추가
+          </button>
         </div>
-        <div id="form-panel">
-          <div id="form-container">
-            <p style="color:#aaa;padding:20px;">좌측에서 캐릭터를 선택하거나 새 캐릭터를 추가하세요.</p>
+        
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+          <!-- Top: Horizontal Character List (Fixed height) -->
+          <div id="list-panel" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-3 overflow-x-auto no-scrollbar flex-shrink-0">
+            <div id="character-list" class="flex flex-row gap-3 min-w-max">
+              <!-- JS rendered items -->
+            </div>
+          </div>
+          <!-- Bottom: Character Form (Scrollable) -->
+          <div id="form-panel" class="flex-1 overflow-hidden">
+            <div id="form-container" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-6 h-full overflow-y-auto no-scrollbar">
+              <div class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
+                <span class="material-symbols-outlined text-5xl mb-3 text-tertiary">contact_support</span>
+                <p class="font-headline font-semibold text-base">캐릭터를 선택하거나 새로 생성하세요.</p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div id="maps-section" style="display:none;">
-      <div class="layout">
-        <div id="list-panel">
-          <button id="map-add-btn">+ 새 맵</button>
-          <div id="map-list"></div>
+      <!-- Maps Section -->
+      <section id="maps-section" class="flex-1 flex flex-col gap-4 overflow-hidden" style="display:none;">
+        <div class="flex items-center justify-between flex-shrink-0">
+          <h2 class="text-2xl font-headline font-bold text-primary">월드 맵 관리</h2>
+          <button id="map-add-btn" class="px-5 py-2 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all text-xs font-bold">
+            <span class="material-symbols-outlined text-base">add_location</span>
+            새 맵 추가
+          </button>
         </div>
-        <div id="form-panel">
-          <div id="map-form-container">
-            <p style="color:#aaa;padding:20px;">좌측에서 맵을 선택하거나 새 맵을 추가하세요.</p>
+        
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+          <div id="list-panel" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-3 overflow-x-auto no-scrollbar flex-shrink-0">
+            <div id="map-list" class="flex flex-row gap-3 min-w-max"></div>
+          </div>
+          <div id="form-panel" class="flex-1 overflow-hidden">
+            <div id="map-form-container" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-6 h-full overflow-y-auto no-scrollbar">
+              <div class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
+                <span class="material-symbols-outlined text-5xl mb-3 text-tertiary">map</span>
+                <p class="font-headline font-semibold text-base">맵을 선택하여 속성을 확인하세요.</p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div id="terms-section" style="display:none;">
-      <div class="layout">
-        <div id="term-list-panel" style="width:280px;border-right:1px solid #ddd;background:#fff;display:flex;flex-direction:column;">
-          <button id="term-add-btn" style="margin:12px;padding:10px;background:#4dabf7;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:monospace;">+ 새 용어</button>
-          <div id="term-list"></div>
+      <!-- Terms Section -->
+      <section id="terms-section" class="flex-1 flex flex-col gap-4 overflow-hidden" style="display:none;">
+        <div class="flex items-center justify-between flex-shrink-0">
+          <h2 class="text-2xl font-headline font-bold text-primary">용어 및 대사 관리</h2>
+          <button id="term-add-btn" class="px-5 py-2 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all text-xs font-bold">
+            <span class="material-symbols-outlined text-base">edit_note</span>
+            새 용어 추가
+          </button>
         </div>
-        <div id="term-form-panel" style="flex:1;padding:20px;overflow-y:auto;background:#fafafa;">
-          <div id="term-form-container">
-            <p style="color:#aaa;padding:20px;">좌측에서 용어를 선택하거나 새 용어를 추가하세요.</p>
+        
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+          <div id="list-panel" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-3 overflow-x-auto no-scrollbar flex-shrink-0">
+            <div id="term-list" class="flex flex-row gap-3 min-w-max"></div>
+          </div>
+          <div id="term-form-panel" class="flex-1 overflow-hidden">
+            <div id="term-form-container" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-6 h-full overflow-y-auto no-scrollbar">
+              <div class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
+                <span class="material-symbols-outlined text-5xl mb-3 text-tertiary">history_edu</span>
+                <p class="font-headline font-semibold text-base">용어집을 검토하고 편집하세요.</p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+    </main>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>

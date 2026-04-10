@@ -5,7 +5,7 @@ import { stopBGM } from './mapList';
 let preview: Preview3D | null = null;
 
 const BGM_OPTIONS = [
-  { value: '',              label: '(없음)' },
+  { value: '',              label: '(None)' },
   { value: 'bgm_lobby',    label: '🏠 Lobby' },
   { value: 'bgm_adventure',label: '⚔️ Adventure' },
   { value: 'bgm_nature',   label: '🌿 Nature' },
@@ -41,15 +41,20 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
     el.innerHTML = '';
     colors.forEach((c, i) => {
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+      row.className = 'group flex items-center gap-2 p-1.5 bg-surface-container rounded-lg border border-white/40 shadow-sm';
+      
       const picker = document.createElement('input');
       picker.type = 'color';
       picker.value = c;
+      picker.className = 'w-6 h-6 rounded cursor-pointer border-none bg-transparent';
       picker.addEventListener('input', () => { colors[i] = picker.value; updatePreview(); });
+      
       const removeBtn = document.createElement('button');
-      removeBtn.textContent = '−';
+      removeBtn.innerHTML = '<span class="material-symbols-outlined text-sm">close</span>';
       removeBtn.type = 'button';
+      removeBtn.className = 'w-6 h-6 flex items-center justify-center text-error opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error/10 rounded-md';
       removeBtn.addEventListener('click', () => { colors.splice(i, 1); renderColorList(); updatePreview(); });
+      
       row.appendChild(picker);
       row.appendChild(removeBtn);
       el.appendChild(row);
@@ -57,83 +62,151 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
   };
 
   container.innerHTML = `
-    <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">${map ? '맵 편집' : '새 맵'}</div>
-    <div class="form-inner">
-      <div class="preview-col">
-        <canvas id="map-preview-canvas" tabindex="0"></canvas>
-      </div>
-      <div class="fields-col">
-        <div class="form-group">
-        <label>맵 이름 *</label>
-        <input id="m-name" type="text" maxlength="100" value="${data.name}" placeholder="맵 이름" />
-      </div>
-      <div class="form-group">
-        <label>테마</label>
-        <select id="m-theme">
-          <option value="pastel" ${data.theme === 'pastel' ? 'selected' : ''}>Pastel</option>
-          <option value="candy"  ${data.theme === 'candy' ? 'selected' : ''}>Candy</option>
-          <option value="neon"   ${data.theme === 'neon' ? 'selected' : ''}>Neon</option>
-          <option value="custom" ${data.theme === 'custom' ? 'selected' : ''}>Custom</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>장애물 수 (<span id="obs-val">${data.obstacleCount}</span>)</label>
-        <input id="m-obs" type="range" min="10" max="200" value="${data.obstacleCount}" />
-      </div>
-      <div class="form-group">
-        <label>컬러 팔레트 (최소 1개)</label>
-        <div id="color-list"></div>
-        <button type="button" id="add-color-btn" style="margin-top:4px;">+ 색상 추가</button>
-      </div>
-      <div class="form-group">
-        <label>바닥 크기 (100~2000)</label>
-        <input id="m-floor" type="number" min="100" max="2000" value="${data.floorSize}" />
-      </div>
-      <div class="form-group">
-        <label>장애물 배치 구역 (<span id="pz-val">${data.playZone}</span>)</label>
-        <input id="m-pz" type="range" min="10" max="${Math.floor(data.floorSize / 2) - 10}" value="${data.playZone}" />
-      </div>
-      <div class="form-group">
-        <label>안개 밀도 (0.001~0.05)</label>
-        <input id="m-fog" type="number" step="0.001" min="0.001" max="0.05" value="${data.fogDensity}" />
-      </div>
-      <div class="form-group">
-        <label>배경색</label>
-        <input id="m-bg" type="color" value="${data.bgColor}" />
-      </div>
-      <div class="form-group">
-        <label>시드값 (0~2147483647)</label>
-        <div style="display:flex;gap:6px;">
-          <input id="m-seed" type="number" min="0" max="2147483647" value="${data.seed}" style="flex:1;" />
-          <button type="button" id="rand-seed-btn">🎲 랜덤</button>
+    <div class="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="px-3 py-1 bg-secondary/10 text-secondary text-[10px] rounded-full font-headline tracking-widest uppercase mb-1 inline-block">Map Studio</span>
+          <h2 class="text-2xl font-headline font-bold text-primary tracking-tight">${map ? '맵 정보 수정' : '새 맵 생성'}</h2>
         </div>
       </div>
-      <div class="form-group">
-        <label>배경음악 (BGM)</label>
-        <select id="m-bgm">
-          ${BGM_OPTIONS.map(o => `<option value="${o.value}" ${(data.bgmFile || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>활성 여부</label>
-        <input id="m-active" type="checkbox" ${data.isActive ? 'checked' : ''} />
-      </div>
 
-      <div class="form-actions" style="display:flex;gap:8px;margin-top:16px;">
-        <button id="m-save-btn" style="flex:1;">저장</button>
-        <button id="m-cancel-btn" style="flex:1;background:#666;">취소</button>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <!-- Map Preview Column -->
+        <div class="relative group">
+          <div class="absolute -top-10 -right-10 w-40 h-40 bg-secondary-container/20 rounded-full blur-3xl opacity-60"></div>
+          <div class="relative w-full aspect-square rounded-2xl bg-surface-container-low overflow-hidden shadow-inner border border-white/40">
+            <canvas id="map-preview-canvas" class="w-full h-full outline-none" tabindex="0"></canvas>
+            <div class="absolute bottom-4 left-4 right-4 glass-panel rounded-xl p-3 flex justify-between items-center text-[10px] font-bold text-secondary uppercase tracking-widest pointer-events-none">
+              <span>3D 미리보기</span>
+              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span> Live</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Fields Column -->
+        <div class="flex flex-col gap-6 overflow-y-auto no-scrollbar max-h-[70vh]">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">맵 이름</label>
+              <input id="m-name" type="text" maxlength="100" value="${data.name}" placeholder="맵 이름을 입력하세요" 
+                class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold transition-all shadow-sm" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">Aesthetic Theme</label>
+              <select id="m-theme" class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold transition-all cursor-pointer">
+                <option value="pastel" ${data.theme === 'pastel' ? 'selected' : ''}>Pastel (파스텔)</option>
+                <option value="candy"  ${data.theme === 'candy' ? 'selected' : ''}>Candy (사탕)</option>
+                <option value="neon"   ${data.theme === 'neon' ? 'selected' : ''}>Neon (네온)</option>
+                <option value="custom" ${data.theme === 'custom' ? 'selected' : ''}>Custom (사용자 정의)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="p-4 bg-surface-container rounded-xl border border-white/40 space-y-4 shadow-inner">
+            <div class="space-y-2">
+              <div class="flex justify-between items-center">
+                <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">장애물 농도</label>
+                <span id="obs-val" class="text-xs font-black text-primary">${data.obstacleCount}</span>
+              </div>
+              <input id="m-obs" type="range" min="10" max="200" value="${data.obstacleCount}" class="w-full h-1.5 bg-background rounded-lg appearance-none cursor-pointer accent-primary" />
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">색상 팔레트</label>
+              <div class="flex flex-wrap gap-2">
+                 <div id="color-list" class="flex flex-wrap gap-2"></div>
+                 <button type="button" id="add-color-btn" class="w-10 h-10 rounded-lg flex items-center justify-center bg-white border border-dashed border-primary/30 text-primary hover:bg-primary/5 transition-all">
+                  <span class="material-symbols-outlined text-sm">add</span>
+                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+             <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">맵 전체 크기</label>
+              <input id="m-floor" type="number" min="100" max="2000" value="${data.floorSize}" 
+                class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold shadow-sm" />
+            </div>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center">
+                <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">활동 가능 영역</label>
+                <span id="pz-val" class="text-xs font-black text-secondary">${data.playZone}</span>
+              </div>
+              <input id="m-pz" type="range" min="10" max="${Math.floor(data.floorSize / 2) - 10}" value="${data.playZone}" class="w-full h-1.5 bg-background rounded-lg appearance-none cursor-pointer accent-secondary" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">안개 밀도</label>
+              <input id="m-fog" type="number" step="0.001" min="0.001" max="0.05" value="${data.fogDensity}" 
+                class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold shadow-sm" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">배경색</label>
+              <div class="flex gap-2">
+                <input id="m-bg" type="color" value="${data.bgColor}" class="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                <span class="text-[10px] font-bold text-tertiary flex items-center">${data.bgColor.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">고유 시드값</label>
+              <div class="flex gap-2">
+                <input id="m-seed" type="number" min="0" max="2147483647" value="${data.seed}" 
+                  class="flex-1 bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-xs font-mono shadow-sm" />
+                <button type="button" id="rand-seed-btn" class="px-3 bg-surface-container-low text-primary rounded-xl hover:bg-white transition-all border border-white/50">
+                  <span class="material-symbols-outlined text-lg">casino</span>
+                </button>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">배경 음악</label>
+              <select id="m-bgm" class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold transition-all cursor-pointer">
+                ${BGM_OPTIONS.map(o => `<option value="${o.value}" ${(data.bgmFile || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-white/50 shadow-sm mt-2">
+            <div>
+              <p class="text-xs font-bold text-primary">활성화 상태</p>
+              <p class="text-[10px] text-tertiary uppercase tracking-widest">실제 게임 포탈에 표시 여부를 결정합니다</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="m-active" type="checkbox" class="sr-only peer" ${data.isActive ? 'checked' : ''}>
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          <div class="flex gap-3 mt-4">
+            <button id="m-save-btn" class="flex-1 py-4 bg-gradient-to-br from-secondary to-secondary-container text-white rounded-2xl shadow-lg shadow-secondary/20 hover:shadow-secondary/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all font-headline font-bold text-sm flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-lg">map</span>
+              설정 저장
+            </button>
+            <button id="m-cancel-btn" class="px-6 py-4 bg-surface-container-low text-on-surface-variant rounded-2xl border border-white/50 hover:bg-white transition-all font-headline font-semibold text-sm">
+              취소
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
   `;
 
   // 3D 미리보기 초기화
-  const canvas = document.getElementById('map-preview-canvas') as HTMLCanvasElement;
-  const parent = canvas.parentElement;
-  canvas.width = parent ? parent.clientWidth : 600;
-  canvas.height = parent ? parent.clientHeight : 600;
-  if (preview) preview.destroy();
-  preview = new Preview3D(canvas);
+  setTimeout(() => {
+    const canvas = document.getElementById('map-preview-canvas') as HTMLCanvasElement;
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientWidth;
+    if (preview) preview.destroy();
+    preview = new Preview3D(canvas);
+    preview.loadMap(data as any);
+  }, 50);
 
   const updatePreview = () => {
     if (!preview) return;
@@ -151,8 +224,6 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
     };
     preview.loadMap(payload as any);
   };
-
-  preview.loadMap(data as any);
 
   renderColorList();
 
@@ -172,7 +243,6 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
     updatePreview();
   });
 
-  // 실시간 플레이존 최대값 동기화
   const floorInput = document.getElementById('m-floor') as HTMLInputElement;
   const pzInput = document.getElementById('m-pz') as HTMLInputElement;
   floorInput.addEventListener('change', () => {
@@ -187,21 +257,25 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
     updatePreview();
   });
 
-  // 다른 필드들 변경 시 미리보기 업데이트
   ['m-theme', 'm-fog', 'm-bg', 'm-seed'].forEach(id => {
     document.getElementById(id)!.addEventListener('input', updatePreview);
   });
 
   document.getElementById('m-cancel-btn')!.addEventListener('click', () => {
     stopBGM();
-    container.innerHTML = '<p style="color:#888;">맵을 선택하거나 새 맵을 추가하세요.</p>';
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-full text-center p-12 opacity-50">
+        <span class="material-symbols-outlined text-6xl mb-4 text-tertiary">map</span>
+        <p class="font-headline font-semibold text-lg">Select a territory to inspect its properties</p>
+      </div>
+    `;
     if (preview) { preview.destroy(); preview = null; }
   });
 
   document.getElementById('m-save-btn')!.addEventListener('click', async () => {
     const name = (document.getElementById('m-name') as HTMLInputElement).value.trim();
-    if (!name) { alert('맵 이름을 입력하세요.'); return; }
-    if (colors.length === 0) { alert('컬러 팔레트에 최소 1개 이상 입력하세요.'); return; }
+    if (!name) { alert('Enter map name.'); return; }
+    if (colors.length === 0) { alert('Define at least 1 color.'); return; }
 
     const bgmVal = (document.getElementById('m-bgm') as HTMLSelectElement).value;
     const payload: Omit<MapData, 'id'> = {
@@ -218,22 +292,17 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
       bgmFile: bgmVal || undefined,
     };
 
-    console.log('[MapForm] Saving payload:', payload);
-
     try {
       let savedResult: MapData;
       if (map?.id) {
-        console.log('[MapForm] Updating existing map:', map.id);
         savedResult = await updateMap(map.id, payload);
       } else {
-        console.log('[MapForm] Creating new map');
         savedResult = await createMap(payload);
       }
-      alert('저장되었습니다.');
+      alert('Saved.');
       onSaved(savedResult);
     } catch (e: any) {
-      console.error('[MapForm] Save error:', e);
-      alert('저장 실패: ' + e.message);
+      alert('Error: ' + e.message);
     }
   });
 };

@@ -91,11 +91,12 @@ export const initWorld = (config: MapConfig) => {
   // 조명이 중복되지 않도록 정리 (기존 조명 제거)
   scene.children.filter(c => c instanceof THREE.Light).forEach(l => scene.remove(l));
 
-  // 환경광 & 태양광 설정
-  const hemiLight = new THREE.HemisphereLight(0xFFFFFF, 0x4444ff, 1.2);
-  scene.add(hemiLight);
+  // 환경광 & 조명 설정
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+  // 키 라이트 (그림자 담당)
+  const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
   dirLight.position.set(100, 200, 100);
   dirLight.castShadow = true;
   dirLight.shadow.mapSize.set(2048, 2048);
@@ -105,6 +106,11 @@ export const initWorld = (config: MapConfig) => {
   dirLight.shadow.camera.bottom = -250;
   dirLight.shadow.bias = -0.0005;
   scene.add(dirLight);
+
+  // 필 라이트 (반대편 그림자 채움)
+  const fillLight = new THREE.DirectionalLight(0xaaccff, 1.5);
+  fillLight.position.set(-10, 10, -10);
+  scene.add(fillLight);
 
   // 하늘 고도화 (구름, 해/달, 새 등)
   initSky(config);

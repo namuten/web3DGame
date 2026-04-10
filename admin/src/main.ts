@@ -24,6 +24,11 @@ const showTab = (tab: 'characters' | 'maps' | 'terms') => {
   mapTab.classList.toggle('active',   tab === 'maps');
   termsTab.classList.toggle('active', tab === 'terms');
 
+  const pageTitle = document.getElementById('page-title')!;
+  if (tab === 'characters') pageTitle.textContent = '캐릭터 관리';
+  else if (tab === 'maps') pageTitle.textContent = '맵 관리';
+  else pageTitle.textContent = '용어 관리';
+
   if (tab === 'characters') loadCharacters();
   else if (tab === 'maps')  loadMaps();
   else                      loadTerms();

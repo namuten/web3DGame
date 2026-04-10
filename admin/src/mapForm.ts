@@ -1,6 +1,9 @@
 import { MapData, createMap, updateMap } from './mapApi';
 import { Preview3D } from './preview3d';
 import { stopBGM } from './mapList';
+import { MonsterData, fetchMonsters } from './monsterApi';
+
+
 
 let preview: Preview3D | null = null;
 
@@ -29,10 +32,20 @@ const defaultMap = (): Omit<MapData, 'id'> => ({
 
 const randomSeed = () => Math.floor(Math.random() * 2147483647);
 
-export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData) => void) => {
+export const renderMapForm = async (map: MapData | null, onSaved: (savedMap?: MapData) => void) => {
   stopBGM();
   const container = document.getElementById('map-form-container')!;
+  
+  // 몬스터 목록 가져오기
+  let monsterOptions: MonsterData[] = [];
+  try {
+    monsterOptions = await fetchMonsters();
+  } catch (err) {
+    console.error('Failed to load monster options', err);
+  }
+
   const data: Omit<MapData, 'id'> = map ? { ...map } : defaultMap();
+
   let colors: string[] = [...data.obstacleColors];
 
   const renderColorList = () => {
@@ -171,6 +184,18 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
             </div>
           </div>
 
+          <!-- Monster Selection -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">소환할 몬스터</label>
+            <select id="m-monster" class="w-full bg-surface-container rounded-xl py-4 px-5 border-2 border-primary/10 focus:ring-2 focus:ring-primary text-sm font-bold transition-all cursor-pointer">
+              <option value="">(전투 없음 / 보스 슬라임 기본값)</option>
+              ${monsterOptions.filter(m => m.isActive).map(m => `
+                <option value="${m.id}" ${data.monsterId === m.id ? 'selected' : ''}>${m.name} (HP ${m.hp} | SPD ${m.speed})</option>
+              `).join('')}
+            </select>
+          </div>
+
+
           <div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-white/50 shadow-sm mt-2">
             <div>
               <p class="text-xs font-bold text-primary">활성화 상태</p>
@@ -290,7 +315,9 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
       isActive: (document.getElementById('m-active') as HTMLInputElement).checked,
       obstacleColors: colors,
       bgmFile: bgmVal || undefined,
+      monsterId: (document.getElementById('m-monster') as HTMLSelectElement).value ? Number((document.getElementById('m-monster') as HTMLSelectElement).value) : undefined,
     };
+
 
     try {
       let savedResult: MapData;
@@ -299,7 +326,7 @@ export const renderMapForm = (map: MapData | null, onSaved: (savedMap?: MapData)
       } else {
         savedResult = await createMap(payload);
       }
-      alert('Saved.');
+      alert('맵 설정이 저장되었습니다. 소환 몬스터 변경 사항은 해당 맵의 모든 인원이 퇴장 후 재입장 시 적용됩니다.');
       onSaved(savedResult);
     } catch (e: any) {
       alert('Error: ' + e.message);

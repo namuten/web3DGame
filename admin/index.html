@@ -129,6 +129,10 @@
           <span class="material-symbols-outlined mr-4 group-hover:scale-110 transition-transform">history_edu</span>
           <span class="font-semibold">용어 관리</span>
         </button>
+        <button id="tab-monsters" class="tab-btn w-[calc(100%-2rem)] mx-4 py-3 flex items-center justify-start px-6 rounded-full transition-all group hover:bg-[#bccdf9]/30 text-[#4d5e84]">
+          <span class="material-symbols-outlined mr-4 group-hover:scale-110 transition-transform">smart_toy</span>
+          <span class="font-semibold">몬스터 관리</span>
+        </button>
       </nav>
       <div class="px-8 mt-auto pt-8 border-t border-primary/10">
         <div class="bg-surface-container-low p-4 rounded-xl">
@@ -238,6 +242,23 @@
               <div class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
                 <span class="material-symbols-outlined text-5xl mb-3 text-tertiary">history_edu</span>
                 <p class="font-headline font-semibold text-base">용어집을 검토하고 편집하세요.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Monsters Section -->
+      <section id="monsters-section" class="flex-1 flex flex-col gap-4 overflow-hidden" style="display:none;">
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden mt-2">
+          <div id="monster-list-panel" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-3 overflow-hidden flex-shrink-0">
+            <div id="monster-list-container"></div>
+          </div>
+          <div id="monster-form-panel" class="flex-1 overflow-hidden">
+            <div id="monster-form-container" class="bg-surface-container-lowest rounded-xl shadow-sm border border-white p-6 h-full overflow-y-auto no-scrollbar">
+              <div class="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
+                <span class="material-symbols-outlined text-5xl mb-3 text-tertiary">monster</span>
+                <p class="font-headline font-semibold text-base">몬스터 도감을 열어 속성을 조정하세요.</p>
               </div>
             </div>
           </div>

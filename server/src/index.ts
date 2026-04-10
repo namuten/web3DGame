@@ -11,10 +11,22 @@ import * as MapModel from './models/Map.js';
 import { ensureTable as ensureMonsterTermTable } from './models/MonsterTerm.js';
 import * as MonsterTermModel from './models/MonsterTerm.js';
 import monsterTermRoutes from './routes/monsterTerms.js';
+import { ensureTable as ensureMonsterTable } from './models/Monster.js';
+import * as MonsterModel from './models/Monster.js';
+import monsterRoutes from './routes/monsters.js';
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
 
 // MySQL 연결 확인 및 테이블 초기화
 pool.getConnection()
@@ -27,13 +39,18 @@ pool.getConnection()
     console.log('✅ maps 테이블 준비 완료');
     await ensureMonsterTermTable();
     console.log('✅ monster_terms 테이블 준비 완료');
+    await ensureMonsterTable();
+    console.log('✅ monsters 테이블 준비 완료');
   })
+
   .catch((err: any) => console.error('❌ MySQL 연결 실패:', err));
 
 // API 라우터
 app.use('/api/characters', characterRoutes);
 app.use('/api/maps', mapRoutes);
 app.use('/api/monster-terms', monsterTermRoutes);
+app.use('/api/monsters', monsterRoutes);
+
 
 app.get('/', (_req, res) => res.send('OK'));
 
@@ -147,25 +164,36 @@ io.on('connection', (socket: Socket) => {
           const config = mapConfig;
           const limit = config.playZone || 80;
           const termRecord = await MonsterTermModel.findRandom();
+          
+          // 맵에 지정된 몬스터 정보 가져오기
+          let monsterConfig = null;
+          if (config.monsterId) {
+            monsterConfig = await MonsterModel.findById(config.monsterId);
+          }
+
           const monster = {
             id: 'boss_slime',
             mapId: mapIdStr,
+            name: monsterConfig?.name || 'Boss Slime',
+            glbFile: monsterConfig?.glbFile || 'monster.glb', // 기본값
             position: {
               x: (Math.random() - 0.5) * limit * 0.8,
               y: 5,
               z: (Math.random() - 0.5) * limit * 0.8
             },
             targetId: null,
-            speed: 0.8,
+            speed: monsterConfig?.speed || 0.8,
             alive: true,
-            hp: 300,
-            maxHp: 300,
-            scale: 1.0,
+            hp: monsterConfig?.hp || 300,
+            maxHp: monsterConfig?.hp || 300,
+            scale: monsterConfig?.scale || 1.0,
             term: termRecord?.term,
             termDesc: termRecord?.description,
           };
           monsters[mapIdStr] = monster;
+          console.log(`[MonsterSpawn] Map:${mapIdStr}, Name:${monster.name}, GLB:${monster.glbFile}, HP:${monster.hp}`);
           io.to(mapIdStr).emit('MONSTER_SPAWN', monster);
+
           io.to(mapIdStr).emit('CHAT_MESSAGE', { sender: 'SYSTEM_DEBUG', text: `[DEBUG] Slime Spawned at X:${monster.position.x.toFixed(1)}, Z:${monster.position.z.toFixed(1)}` });
         } catch (err) {
           console.error('[SPAWN] Failed to spawn monster:', err);

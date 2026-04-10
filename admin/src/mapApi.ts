@@ -14,6 +14,7 @@ export interface MapData {
   seed: number;
   isActive: boolean;
   bgmFile?: string;
+  monsterId?: number;
 }
 
 export const fetchMaps = async (): Promise<MapData[]> => {

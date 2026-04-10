@@ -6,7 +6,7 @@ import { retroTheme }  from './themes/retro';
 import { magicTheme }  from './themes/magic';
 import { cyberTheme }  from './themes/cyber';
 import { natureTheme } from './themes/nature';
-import { tts } from '../tts/tts';
+
 
 
 const THEMES: Record<SoundTheme, ThemeConfig> = {

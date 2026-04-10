@@ -79,8 +79,10 @@ router.post('/', async (req: Request, res: Response) => {
       bgColor: bgColor ?? '#A2D2FF',
       seed: Number(seed ?? 42),
       isActive: isActive ?? true,
-      bgmFile: bgmFile ?? undefined,
-      monsterId: monsterId !== undefined ? Number(monsterId) : undefined,
+      bgmFile: bgmFile ?? null,
+      monsterId: (monsterId !== undefined && monsterId !== null) ? Number(monsterId) : null,
+
+
     });
 
     res.status(201).json(map);

@@ -6,6 +6,8 @@ import { retroTheme }  from './themes/retro';
 import { magicTheme }  from './themes/magic';
 import { cyberTheme }  from './themes/cyber';
 import { natureTheme } from './themes/nature';
+import { tts } from '../tts/tts';
+
 
 const THEMES: Record<SoundTheme, ThemeConfig> = {
   cute:   cuteTheme,
@@ -135,6 +137,7 @@ export const soundManager = {
   playDeath()    { this._play('death');    },
   playFootstep() { this._play('footstep'); },
   playJump()     { this._play('jump');     },
+
 
   playBGM(bgmFile: string) {
     if (!bgmFile) return;

@@ -1,5 +1,7 @@
 import { io, Socket } from 'socket.io-client';
+import { SERVER_URL } from './config';
 import * as THREE from 'three';
+
 import { scene } from '../engine/scene';
 import { playerMesh, setPlayerColor, getUpperYaw, getUpperPitch } from '../game/player';
 import { createCharacterModel } from '../game/characterModel';
@@ -20,8 +22,9 @@ import { tts } from '../tts/tts';
 import { registerPlayerVoice, getVoiceOptions, unregisterPlayerVoice } from '../tts/characterVoices';
 
 // autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://namuten.duckdns.org';
+// autoConnect: false → 이름 입력 후 수동 연결 (이름을 쿼리로 전달)
 export const socket: Socket = io(SERVER_URL, { autoConnect: false });
+
 
 // 이름표 스프라이트 직접 참조 Map (getObjectByName 대신)
 const nameTags: Record<string, THREE.Group | THREE.Mesh> = {};
@@ -109,7 +112,7 @@ socket.on('player_joined', (playerData: any) => {
 });
 
 // 각 플레이어 이동 정보 수신 (자신 제외)
-socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:number, z:number}, quaternion?: {_x:number, _y:number, _z:number, _w:number}, upperYaw?: number, upperPitch?: number }) => {
+socket.on('STATE_UPDATE', (updateInfo: { id: string, position: { x: number, y: number, z: number }, quaternion?: { _x: number, _y: number, _z: number, _w: number }, upperYaw?: number, upperPitch?: number }) => {
   if (otherPlayers[updateInfo.id]) {
     otherPlayers[updateInfo.id].position.set(
       updateInfo.position.x,
@@ -133,11 +136,11 @@ socket.on('STATE_UPDATE', (updateInfo: { id: string, position: {x:number, y:numb
 // 채팅 메시지 수신
 socket.on('CHAT_MESSAGE', (data: { sender: string, senderId: string, text: string }) => {
   appendMessage(data.sender, data.text, '#00ffaa');
-  
+
   // TTS 재생 (활성화 시에만, 시스템/디버깅 메시지 제외)
   const senderUpper = data.sender.toUpperCase();
   const isSystemMsg = senderUpper.includes('SYSTEM') || senderUpper.includes('DEBUG');
-  
+
   if (soundManager.isTTSEnabled() && !isSystemMsg) {
     const voiceId = data.senderId === socket.id ? 'local' : data.senderId;
     const opts = getVoiceOptions(voiceId);
@@ -171,9 +174,9 @@ socket.on('player_left', (id: string) => {
 });
 
 // 데미지 수신 처리
-socket.on('PLAYER_DAMAGED', (data: { targetId: string, hp: number, shooterId: string, direction: {x: number, y: number, z: number} }) => {
+socket.on('PLAYER_DAMAGED', (data: { targetId: string, hp: number, shooterId: string, direction: { x: number, y: number, z: number } }) => {
   const dir = new THREE.Vector3(data.direction.x, data.direction.y, data.direction.z);
-  
+
   if (data.targetId === socket.id) {
     // 내가 맞았을 때
     import('../game/player').then(m => m.applyDamage(data.hp, dir));
@@ -185,7 +188,7 @@ socket.on('PLAYER_DAMAGED', (data: { targetId: string, hp: number, shooterId: st
 });
 
 // 리스폰 수신 처리
-socket.on('PLAYER_RESPAWN', (data: { id: string, hp: number, position: {x: number, y: number, z: number} }) => {
+socket.on('PLAYER_RESPAWN', (data: { id: string, hp: number, position: { x: number, y: number, z: number } }) => {
   if (data.id === socket.id) {
     import('../game/player').then(m => m.respawnPlayer(data.hp, data.position));
     updatePartyMemberHP('local', data.hp);
@@ -246,100 +249,100 @@ const BROADCAST_INTERVAL = 1000 / 20;
 let lastBroadcastTime = 0;
 
 export const broadcastLocalPosition = () => {
-    const now = performance.now();
-    if (now - lastBroadcastTime < BROADCAST_INTERVAL) return;
-    lastBroadcastTime = now;
+  const now = performance.now();
+  if (now - lastBroadcastTime < BROADCAST_INTERVAL) return;
+  lastBroadcastTime = now;
 
-    socket.emit('MOVE', {
-        position: {
-            x: playerMesh.position.x,
-            y: playerMesh.position.y,
-            z: playerMesh.position.z
-        },
-        quaternion: {
-            _x: playerMesh.quaternion.x,
-            _y: playerMesh.quaternion.y,
-            _z: playerMesh.quaternion.z,
-            _w: playerMesh.quaternion.w
-        },
-        upperYaw: getUpperYaw(),
-        upperPitch: getUpperPitch()
-    });
+  socket.emit('MOVE', {
+    position: {
+      x: playerMesh.position.x,
+      y: playerMesh.position.y,
+      z: playerMesh.position.z
+    },
+    quaternion: {
+      _x: playerMesh.quaternion.x,
+      _y: playerMesh.quaternion.y,
+      _z: playerMesh.quaternion.z,
+      _w: playerMesh.quaternion.w
+    },
+    upperYaw: getUpperYaw(),
+    upperPitch: getUpperPitch()
+  });
 };
 
 export const sendChatMessage = (text: string) => {
-    socket.emit('CHAT_MESSAGE', { text });
-    appendMessage(localPlayerName, text, '#ffcc00');
+  socket.emit('CHAT_MESSAGE', { text });
+  appendMessage(localPlayerName, text, '#ffcc00');
 
-    // 내 메시지 TTS (자청해서 듣기 - 활성화 시에만)
-    if (soundManager.isTTSEnabled()) {
-        const opts = getVoiceOptions('local');
-        tts.speak(text, opts, 'local'); // 자신은 'local'로 구분
-    }
+  // 내 메시지 TTS (자청해서 듣기 - 활성화 시에만)
+  if (soundManager.isTTSEnabled()) {
+    const opts = getVoiceOptions('local');
+    tts.speak(text, opts, 'local'); // 자신은 'local'로 구분
+  }
 };
 
 export const sendShoot = (origin: THREE.Vector3, direction: THREE.Vector3) => {
-    socket.emit('SHOOT', {
-        origin: { x: origin.x, y: origin.y, z: origin.z },
-        direction: { x: direction.x, y: direction.y, z: direction.z },
-    });
+  socket.emit('SHOOT', {
+    origin: { x: origin.x, y: origin.y, z: origin.z },
+    direction: { x: direction.x, y: direction.y, z: direction.z },
+  });
 };
 
 // ─── 몬스터 시스템 추가 ───────────────────────────────────
 
 socket.on('MONSTER_SPAWN', (data: MonsterData) => {
-    monsterManager.spawn(data);
-    const msg = '거대 슬라임이 나타났습니다! 도망가세요!';
-    appendMessage('Boss Slime', msg, '#ff0000');
-    
-    // 시스템 음성 안내
-    tts.speak(msg, { voice: 'Grandpa', rate: 0.8, pitch: 0.5 });
-    
-    // 몬스터 등장 오버레이 표시
-    const banner = document.createElement('div');
-    banner.style.cssText = `
+  monsterManager.spawn(data);
+  const msg = '도망가세요!';
+  appendMessage('Boss Slime', msg, '#ff0000');
+
+  // 시스템 음성 안내
+  tts.speak(msg, { voice: 'Grandpa', rate: 0.8, pitch: 0.5 });
+
+  // 몬스터 등장 오버레이 표시
+  const banner = document.createElement('div');
+  banner.style.cssText = `
         position: fixed; top: 20%; left: 50%; translate: -50% -50%;
         color: #ff0000; font-size: 60px; font-weight: bold; font-family: sans-serif;
         text-shadow: 0 0 20px black; pointer-events: none; z-index: 10000;
         animation: blink 0.5s infinite alternate;
     `;
-    banner.innerText = "⚠️ WARNING: BOSS SLIME SPAWNED!";
-    document.body.appendChild(banner);
-    
-    const style = document.createElement('style');
-    style.textContent = `@keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }`;
-    document.head.appendChild(style);
+  banner.innerText = "⚠️ WARNING: BOSS SLIME SPAWNED!";
+  document.body.appendChild(banner);
 
-    setTimeout(() => { if (banner.parentNode) banner.remove(); }, 5000);
+  const style = document.createElement('style');
+  style.textContent = `@keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }`;
+  document.head.appendChild(style);
+
+  setTimeout(() => { if (banner.parentNode) banner.remove(); }, 5000);
 });
 
 socket.on('MONSTER_UPDATE', (data: { id: string, position: { x: number, y: number, z: number } }) => {
-    monsterManager.update(data);
+  monsterManager.update(data);
 });
 
 socket.on('MONSTER_DAMAGED', (data: { id: string, hp: number, maxHp: number, scale?: number }) => {
-    monsterManager.damage(data.hp, data.maxHp, data.scale || 1.0);
+  monsterManager.damage(data.hp, data.maxHp, data.scale || 1.0);
 });
 
 socket.on('MONSTER_DEFEATED', (_data: { id: string }) => {
-    monsterManager.remove();
-    // 이펙트나 UI 처리가 필요하다면 추가
+  monsterManager.remove();
+  // 이펙트나 UI 처리가 필요하다면 추가
 });
 
 socket.on('MONSTER_WIN', (data: { message: string }) => {
-    appendMessage('Boss Slime', '모든 플레이어를 처치했습니다! 슬라임 승리!', '#ff0000');
-    
-    // UI 오버레이 표시 (나중에 고도화 가능)
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
+  appendMessage('Boss Slime', '모든 플레이어를 처치했습니다! 슬라임 승리!', '#ff0000');
+
+  // UI 오버레이 표시 (나중에 고도화 가능)
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
         position: fixed; top: 50%; left: 50%; translate: -50% -50%;
         color: white; font-size: 40px; font-weight: bold; background: rgba(0,0,0,0.8);
         padding: 40px; border-radius: 20px; text-shadow: 0 0 10px red;
         z-index: 10000;
     `;
-    overlay.textContent = data.message;
-    document.body.appendChild(overlay);
-    setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 4000);
+  overlay.textContent = data.message;
+  document.body.appendChild(overlay);
+  setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 4000);
 });
 
 export const joinMap = (mapId: number) => {

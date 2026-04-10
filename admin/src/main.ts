@@ -7,32 +7,46 @@ import { renderMapForm } from './mapForm';
 import { fetchTerms, TermData } from './termApi';
 import { renderTermList } from './termList';
 import { renderTermForm } from './termForm';
+import { fetchMonsters, MonsterData, deleteMonster } from './monsterApi';
+
+import { renderMonsterList } from './monsterList';
+import { renderMonsterForm } from './monsterForm';
+
 
 // ─── 탭 전환 ────────────────────────────────────────
-const showTab = (tab: 'characters' | 'maps' | 'terms') => {
-  const charSection  = document.getElementById('characters-section')!;
-  const mapSection   = document.getElementById('maps-section')!;
-  const termsSection = document.getElementById('terms-section')!;
-  const charTab      = document.getElementById('tab-characters')!;
-  const mapTab       = document.getElementById('tab-maps')!;
-  const termsTab     = document.getElementById('tab-terms')!;
+const showTab = (tab: 'characters' | 'maps' | 'terms' | 'monsters') => {
 
-  charSection.style.display  = tab === 'characters' ? '' : 'none';
-  mapSection.style.display   = tab === 'maps'       ? '' : 'none';
-  termsSection.style.display = tab === 'terms'      ? '' : 'none';
-  charTab.classList.toggle('active',  tab === 'characters');
-  mapTab.classList.toggle('active',   tab === 'maps');
-  termsTab.classList.toggle('active', tab === 'terms');
+  const charSection  = document.getElementById('characters-section')!;
+  const mapSection     = document.getElementById('maps-section')!;
+  const termsSection   = document.getElementById('terms-section')!;
+  const monsterSection = document.getElementById('monsters-section')!;
+  const charTab        = document.getElementById('tab-characters')!;
+  const mapTab         = document.getElementById('tab-maps')!;
+  const termsTab       = document.getElementById('tab-terms')!;
+  const monsterTab     = document.getElementById('tab-monsters')!;
+
+  charSection.style.display    = tab === 'characters' ? '' : 'none';
+  mapSection.style.display     = tab === 'maps'       ? '' : 'none';
+  termsSection.style.display   = tab === 'terms'      ? '' : 'none';
+  monsterSection.style.display = tab === 'monsters'   ? '' : 'none';
+
+  charTab.classList.toggle('active',    tab === 'characters');
+  mapTab.classList.toggle('active',     tab === 'maps');
+  termsTab.classList.toggle('active',    tab === 'terms');
+  monsterTab.classList.toggle('active',  tab === 'monsters');
 
   const pageTitle = document.getElementById('page-title')!;
   if (tab === 'characters') pageTitle.textContent = '캐릭터 관리';
   else if (tab === 'maps') pageTitle.textContent = '맵 관리';
-  else pageTitle.textContent = '용어 관리';
+  else if (tab === 'terms') pageTitle.textContent = '용어 관리';
+  else pageTitle.textContent = '몬스터 관리';
 
   if (tab === 'characters') loadCharacters();
   else if (tab === 'maps')  loadMaps();
-  else                      loadTerms();
+  else if (tab === 'terms') loadTerms();
+  else                      loadMonsters();
 };
+
 
 // ─── 캐릭터 ────────────────────────────────────────
 let characters: CharacterData[] = [];
@@ -64,19 +78,21 @@ const loadMaps = async () => {
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
 };
 
-const onSelectMap = (map: MapData) => {
+const onSelectMap = async (map: MapData) => {
+
   selectedMapId = map.id ?? null;
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
-  renderMapForm(map, async (savedMap?: MapData) => { 
+  await renderMapForm(map, async (savedMap?: MapData) => { 
     await loadMaps(); 
     if (savedMap) onSelectMap(savedMap);
   });
 };
 
-const onNewMap = () => {
+const onNewMap = async () => {
+
   selectedMapId = null;
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
-  renderMapForm(null, async (savedMap?: MapData) => { 
+  await renderMapForm(null, async (savedMap?: MapData) => { 
     await loadMaps(); 
     if (savedMap) onSelectMap(savedMap);
   });
@@ -103,10 +119,50 @@ const onNewTerm = () => {
   renderTermForm(null, async () => { await loadTerms(); });
 };
 
+// ─── 몬스터 ──────────────────────────────────────────
+let monsters: MonsterData[] = [];
+let selectedMonsterId: number | null = null;
+
+const loadMonsters = async () => {
+  monsters = await fetchMonsters();
+  renderMonsterList(monsters, selectedMonsterId, onSelectMonster, onNewMonster, async (id) => {
+    try {
+      await deleteMonster(id);
+      if (selectedMonsterId === id) selectedMonsterId = null;
+      await loadMonsters();
+    } catch (e: any) {
+      console.error('[Admin] Delete failed:', e);
+      alert('삭제 실패: ' + e.message);
+    }
+  });
+};
+
+const onSelectMonster = (monster: MonsterData) => {
+  selectedMonsterId = monster.id ?? null;
+  loadMonsters(); // renderMonsterList is called inside loadMonsters
+  renderMonsterForm(monster, async (saved?: MonsterData) => {
+    await loadMonsters();
+    if (saved) onSelectMonster(saved);
+  });
+};
+
+const onNewMonster = () => {
+  selectedMonsterId = null;
+  loadMonsters();
+  renderMonsterForm(null, async (saved?: MonsterData) => {
+    await loadMonsters();
+    if (saved) onSelectMonster(saved);
+  });
+};
+
+
+
 // ─── 초기화 ─────────────────────────────────────────
 document.getElementById('tab-characters')!.addEventListener('click', () => showTab('characters'));
 document.getElementById('tab-maps')!.addEventListener('click',       () => showTab('maps'));
 document.getElementById('tab-terms')!.addEventListener('click',      () => showTab('terms'));
+document.getElementById('tab-monsters')!.addEventListener('click',   () => showTab('monsters'));
 
 const hash = window.location.hash;
-showTab(hash === '#maps' ? 'maps' : hash === '#terms' ? 'terms' : 'characters');
+showTab(hash === '#maps' ? 'maps' : hash === '#terms' ? 'terms' : hash === '#monsters' ? 'monsters' : 'characters');
+

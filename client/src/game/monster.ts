@@ -3,6 +3,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { scene } from '../engine/scene';
 import { getGroundHeight } from './world';
 import { soundManager } from '../audio/soundManager';
+import { SERVER_URL } from '../network/config';
+
 
 export interface MonsterData {
     id: string;
@@ -16,7 +18,10 @@ export interface MonsterData {
     scale?: number;
     term?: string;
     termDesc?: string;
+    name?: string;
+    glbFile?: string;
 }
+
 
 
 class MonsterManager {
@@ -42,6 +47,8 @@ class MonsterManager {
     private facingAngle = 0;
     private currentVisualY = 0;
 
+
+
     getIsMoving() {
         return this.isMoving;
     }
@@ -50,14 +57,45 @@ class MonsterManager {
         console.log(`[MonsterClientLog] Spawn GLTF Request Received:`, data);
         if (this.monsterMesh) this.remove();
 
+        // 서버에서 받은 스케일 값 적용
+        if (data.scale !== undefined) {
+            this.targetScale = data.scale;
+            this.currentScale = data.scale;
+        }
+
         const loader = new GLTFLoader();
-        loader.load('/assets/monsters/monster.glb', (gltf) => {
+
+        
+        // 몬스터 모델 경로 결정
+        const glbFile = data.glbFile || 'monster.glb';
+        const glbUrl = glbFile === 'monster.glb' 
+            ? '/assets/monsters/monster.glb' 
+            : `${SERVER_URL}/uploads/monsters/${glbFile}`;
+
+        loader.load(glbUrl, (gltf) => {
+
             const group = gltf.scene;
 
-            // 스케일/위치 조정
-            group.scale.setScalar(0.1); 
+            // 모델 크기 정규화 (Bounding Box 기준)
+            const box = new THREE.Box3().setFromObject(group);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            
+            // 기본 높이 기준(약 20유닛)으로 맞추기 위한 로컬 배율 계산
+            const normalizeScale = maxDim > 0 ? 20.0 / maxDim : 1.0;
+            const finalScale = this.currentScale * normalizeScale;
+
+            this.monsterMesh = group;
+            this.monsterMesh.scale.setScalar(finalScale);
+
+            // 위치 설정 (발바닥이 지면에 닿도록 Y 오프셋 계산)
             const groundY = getGroundHeight(data.position.x, data.position.z);
-            group.position.set(data.position.x, groundY, data.position.z);
+            // 모델의 바닥점이 원점(0,0,0) 근처라고 가정하되, 바운딩 박스 하단을 정확히 맞춤
+            const bottomY = box.min.y * finalScale;
+            this.monsterMesh.position.set(data.position.x, groundY - bottomY, data.position.z);
+
+            scene.add(this.monsterMesh);
 
             // AnimationMixer 설정
             this.mixer = new THREE.AnimationMixer(group);
@@ -126,6 +164,7 @@ class MonsterManager {
 
             console.log(`[MonsterClientLog] Spawned GLTF in Scene at:`, group.position, `GroundY:`, groundY);
         }, undefined, (err) => {
+
             console.error(`[MonsterClientLog] Failed to load monster GLB!`, err);
         });
     }
@@ -142,6 +181,7 @@ class MonsterManager {
         } else {
             soundManager.playHit();
         }
+
         this.flashTimer = 0.2;
         console.log(`Monster HP: ${_hp}/${maxHp}, Scale: ${scale}`);
         this.targetScale = scale;
@@ -228,6 +268,8 @@ class MonsterManager {
                 this.monsterMesh.rotation.y = this.facingAngle;
             }
         }
+
+
 
         this.previousMonsterPos.copy(currentRealPos);
         this.previousWorldVel.copy(worldVel);

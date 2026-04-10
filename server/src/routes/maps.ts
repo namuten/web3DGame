@@ -40,7 +40,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { name, theme, floorSize, playZone, obstacleCount,
-      obstacleColors, fogDensity, bgColor, seed, isActive, bgmFile } = req.body;
+      obstacleColors, fogDensity, bgColor, seed, isActive, bgmFile, monsterId } = req.body;
+
 
     if (!name || !theme) {
       return res.status(400).json({ error: 'name and theme are required' });
@@ -79,7 +80,9 @@ router.post('/', async (req: Request, res: Response) => {
       seed: Number(seed ?? 42),
       isActive: isActive ?? true,
       bgmFile: bgmFile ?? undefined,
+      monsterId: monsterId !== undefined ? Number(monsterId) : undefined,
     });
+
     res.status(201).json(map);
   } catch (err: any) {
     res.status(400).json({ error: 'Failed to create map', message: err.message });

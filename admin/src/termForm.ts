@@ -1,6 +1,6 @@
 import { TermData, createTerm, updateTerm } from './termApi';
 
-export const renderTermForm = (term: TermData | null, onSaved: () => void) => {
+export const renderTermForm = (term: TermData | null, onSaved: (saved?: TermData) => void) => {
   const container = document.getElementById('term-form-container')!;
 
   container.innerHTML = `
@@ -70,12 +70,14 @@ export const renderTermForm = (term: TermData | null, onSaved: () => void) => {
 
     try {
       if (term?.id) {
-        await updateTerm(term.id, { term: termVal, description: descVal });
+        const saved = await updateTerm(term.id, { term: termVal, description: descVal });
+        alert('Knowledge Inscribed.');
+        onSaved(saved);
       } else {
-        await createTerm({ term: termVal, description: descVal });
+        const saved = await createTerm({ term: termVal, description: descVal });
+        alert('Knowledge Inscribed.');
+        onSaved(saved);
       }
-      alert('Knowledge Inscribed.');
-      onSaved();
     } catch (e: any) {
       alert('Inscription failed: ' + e.message);
     }

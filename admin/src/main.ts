@@ -55,18 +55,28 @@ let selectedCharId: string | null = null;
 const loadCharacters = async () => {
   characters = await fetchCharacters();
   renderList(characters, selectedCharId, onSelectChar, onNewChar);
+  
+  if (!selectedCharId && characters.length > 0) {
+    onSelectChar(characters[0]);
+  }
 };
 
 const onSelectChar = (char: CharacterData) => {
   selectedCharId = char._id ?? null;
   renderList(characters, selectedCharId, onSelectChar, onNewChar);
-  renderForm(char, async () => { await loadCharacters(); });
+  renderForm(char, async (savedChar?: CharacterData) => { 
+    await loadCharacters(); 
+    if (savedChar) onSelectChar(savedChar);
+  });
 };
 
 const onNewChar = () => {
   selectedCharId = null;
   renderList(characters, selectedCharId, onSelectChar, onNewChar);
-  renderForm(null, async () => { await loadCharacters(); });
+  renderForm(null, async (savedChar?: CharacterData) => { 
+    await loadCharacters(); 
+    if (savedChar) onSelectChar(savedChar);
+  });
 };
 
 // ─── 맵 ────────────────────────────────────────────
@@ -76,10 +86,13 @@ let selectedMapId: number | null = null;
 const loadMaps = async () => {
   maps = await fetchMaps();
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
+
+  if (!selectedMapId && maps.length > 0) {
+    onSelectMap(maps[0]);
+  }
 };
 
 const onSelectMap = async (map: MapData) => {
-
   selectedMapId = map.id ?? null;
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
   await renderMapForm(map, async (savedMap?: MapData) => { 
@@ -89,7 +102,6 @@ const onSelectMap = async (map: MapData) => {
 };
 
 const onNewMap = async () => {
-
   selectedMapId = null;
   renderMapList(maps, selectedMapId, onSelectMap, onNewMap);
   await renderMapForm(null, async (savedMap?: MapData) => { 
@@ -105,18 +117,28 @@ let selectedTermId: number | null = null;
 const loadTerms = async () => {
   terms = await fetchTerms();
   renderTermList(terms, selectedTermId, onSelectTerm, onNewTerm);
+
+  if (!selectedTermId && terms.length > 0) {
+    onSelectTerm(terms[0]);
+  }
 };
 
 const onSelectTerm = (term: TermData) => {
   selectedTermId = term.id ?? null;
   renderTermList(terms, selectedTermId, onSelectTerm, onNewTerm);
-  renderTermForm(term, async () => { await loadTerms(); });
+  renderTermForm(term, async (savedTerm?: TermData) => { 
+    await loadTerms(); 
+    if (savedTerm) onSelectTerm(savedTerm);
+  });
 };
 
 const onNewTerm = () => {
   selectedTermId = null;
   renderTermList(terms, selectedTermId, onSelectTerm, onNewTerm);
-  renderTermForm(null, async () => { await loadTerms(); });
+  renderTermForm(null, async (savedTerm?: TermData) => { 
+    await loadTerms(); 
+    if (savedTerm) onSelectTerm(savedTerm);
+  });
 };
 
 // ─── 몬스터 ──────────────────────────────────────────
@@ -135,6 +157,10 @@ const loadMonsters = async () => {
       alert('삭제 실패: ' + e.message);
     }
   });
+
+  if (!selectedMonsterId && monsters.length > 0) {
+    onSelectMonster(monsters[0]);
+  }
 };
 
 const onSelectMonster = (monster: MonsterData) => {

@@ -1,4 +1,7 @@
 import { MonsterData, createMonster, updateMonster, uploadMonsterFile } from './monsterApi';
+import { Preview3D } from './preview3d';
+
+let preview: Preview3D | null = null;
 
 const defaultMonster = (): Omit<MonsterData, 'id'> => ({
   name: '',
@@ -20,104 +23,128 @@ export const renderMonsterForm = (monster: MonsterData | null, onSaved: (savedMo
         <h2 class="text-2xl font-headline font-bold text-primary tracking-tight">${monster ? '몬스터 설정 수정' : '신규 몬스터 제작'}</h2>
       </div>
 
-      <div class="space-y-6 overflow-y-auto no-scrollbar max-h-[75vh] pr-1">
-        <!-- Basic Info -->
-        <div class="space-y-4 pt-2">
-          <div class="space-y-2">
-            <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">몬스터 이름</label>
-            <input id="ms-name" type="text" maxlength="100" value="${data.name}" placeholder="예: 거대 슬라임, 지옥견..." 
-              class="w-full bg-surface-container-high border-none rounded-xl py-4 px-5 focus:ring-2 focus:ring-primary text-sm font-semibold shadow-sm" />
-          </div>
-        </div>
-
-        <!-- File Uploads -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">GLB 모델 파일</label>
-            <div class="flex flex-col gap-2">
-               <button id="ms-glb-btn" type="button" class="flex items-center justify-center gap-2 w-full py-4 bg-surface-container rounded-xl border-2 border-dashed border-primary/20 hover:border-primary/50 text-on-surface transition-all">
-                  <span class="material-symbols-outlined text-xl">upload_file</span>
-                  <span id="ms-glb-label" class="text-xs font-bold text-on-surface-variant truncate max-w-[150px]">${data.glbFile || '파일 선택 (.glb)'}</span>
-               </button>
-               <input id="ms-glb-input" type="file" accept=".glb" class="hidden" />
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">활성화 여부</label>
-            <div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-white/50 h-[56px]">
-              <span class="text-xs font-bold text-primary">Active</span>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input id="ms-active" type="checkbox" class="sr-only peer" ${data.isActive ? 'checked' : ''}>
-                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              </label>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <!-- 3D Preview Column -->
+        <div class="relative group">
+          <div class="absolute -top-10 -left-10 w-40 h-40 bg-secondary-container/20 rounded-full blur-3xl opacity-60"></div>
+          <div class="relative w-full aspect-square rounded-2xl bg-surface-container-low overflow-hidden shadow-inner border border-white/40">
+            <canvas id="monster-preview-canvas" class="w-full h-full cursor-grab active:cursor-grabbing outline-none" tabindex="0"></canvas>
+            <div class="absolute bottom-4 left-4 right-4 glass-panel rounded-xl p-3 flex justify-between items-center text-[10px] font-bold text-secondary uppercase tracking-widest pointer-events-none">
+              <span>3D 생명체 분석</span>
+              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span> Live Scan</span>
             </div>
           </div>
         </div>
 
-        <!-- Stats -->
-        <div class="p-5 bg-surface-container rounded-2xl border border-white/40 space-y-6 shadow-inner">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-6 overflow-y-auto no-scrollbar max-h-[75vh] pr-1">
+          <!-- Basic Info -->
+          <div class="space-y-4 pt-2">
             <div class="space-y-2">
-              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">초기 체력 (HP)</label>
-              <input id="ms-hp" type="number" min="1" max="10000" value="${data.hp}" 
-                class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold shadow-sm" />
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">몬스터 이름</label>
+              <input id="ms-name" type="text" maxlength="100" value="${data.name}" placeholder="예: 거대 슬라임, 지옥견..." 
+                class="w-full bg-surface-container-high border-none rounded-xl py-4 px-5 focus:ring-2 focus:ring-primary text-sm font-semibold shadow-sm" />
             </div>
-            
+          </div>
+
+          <!-- File Uploads -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">GLB 모델 파일</label>
+              <div class="flex flex-col gap-2">
+                 <button id="ms-glb-btn" type="button" class="flex items-center justify-center gap-2 w-full py-4 bg-surface-container rounded-xl border-2 border-dashed border-primary/20 hover:border-primary/50 text-on-surface transition-all">
+                    <span class="material-symbols-outlined text-xl">upload_file</span>
+                    <span id="ms-glb-label" class="text-xs font-bold text-on-surface-variant truncate max-w-[150px]">${data.glbFile || '파일 선택 (.glb)'}</span>
+                 </button>
+                 <input id="ms-glb-input" type="file" accept=".glb" class="hidden" />
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">활성화 여부</label>
+              <div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-white/50 h-[56px]">
+                <span class="text-xs font-bold text-primary">Active</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="ms-active" type="checkbox" class="sr-only peer" ${data.isActive ? 'checked' : ''}>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="p-5 bg-surface-container rounded-2xl border border-white/40 space-y-6 shadow-inner">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">초기 체력 (HP)</label>
+                <input id="ms-hp" type="number" min="1" max="10000" value="${data.hp}" 
+                  class="w-full bg-surface-container-high border-none rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary text-sm font-semibold shadow-sm" />
+              </div>
+              
+              <div class="space-y-2">
+                <div class="flex justify-between">
+                  <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">이동 속도</label>
+                  <span id="ms-speed-val" class="text-xs font-black text-primary">${data.speed.toFixed(1)}</span>
+                </div>
+                <input id="ms-speed" type="range" min="0.5" max="10.0" step="0.1" value="${data.speed}" class="w-full h-1.5 bg-background rounded-lg appearance-none cursor-pointer accent-primary" />
+              </div>
+            </div>
+
             <div class="space-y-2">
               <div class="flex justify-between">
-                <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">이동 속도</label>
-                <span id="ms-speed-val" class="text-xs font-black text-primary">${data.speed.toFixed(1)}</span>
+                <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">렌더링 스케일 (Scale)</label>
+                <span id="ms-scale-val" class="text-xs font-black text-secondary">${data.scale.toFixed(2)}</span>
               </div>
-              <input id="ms-speed" type="range" min="0.5" max="10.0" step="0.1" value="${data.speed}" class="w-full h-1.5 bg-background rounded-lg appearance-none cursor-pointer accent-primary" />
+              <input id="ms-scale" type="range" min="0.01" max="5.0" step="0.01" value="${data.scale}" class="w-full h-1.5 bg-background rounded-lg appearance-none cursor-pointer accent-secondary" />
             </div>
           </div>
 
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">렌더링 스케일 (Scale)</label>
-              <span id="ms-scale-val" class="text-xs font-black text-secondary">${data.scale.toFixed(2)}</span>
+          <!-- Sounds -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">이동 효과음</label>
+              <div class="flex flex-col gap-2">
+                 <button id="ms-move-btn" type="button" class="flex items-center justify-center gap-2 w-full py-4 bg-surface-container rounded-xl border hover:border-secondary/50 text-on-surface transition-all">
+                    <span class="material-symbols-outlined text-xl">footprint</span>
+                    <span id="ms-move-label" class="text-[10px] font-bold text-on-surface-variant truncate max-w-[150px]">${data.moveSound || '선택 안함 (Web Audio)'}</span>
+                 </button>
+                 <input id="ms-move-input" type="file" accept=".mp3,.ogg,.wav" class="hidden" />
+              </div>
             </div>
-            <input id="ms-scale" type="range" min="0.01" max="5.0" step="0.01" value="${data.scale}" class="w-full h-1.5 bg-background rounded-lg appearance-none cursor-pointer accent-secondary" />
-          </div>
-        </div>
-
-
-        <!-- Sounds -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">이동 효과음</label>
-            <div class="flex flex-col gap-2">
-               <button id="ms-move-btn" type="button" class="flex items-center justify-center gap-2 w-full py-4 bg-surface-container rounded-xl border hover:border-secondary/50 text-on-surface transition-all">
-                  <span class="material-symbols-outlined text-xl">footprint</span>
-                  <span id="ms-move-label" class="text-[10px] font-bold text-on-surface-variant truncate max-w-[150px]">${data.moveSound || '선택 안함 (Web Audio)'}</span>
-               </button>
-               <input id="ms-move-input" type="file" accept=".mp3,.ogg,.wav" class="hidden" />
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">공격/울음 소리</label>
-            <div class="flex flex-col gap-2">
-               <button id="ms-attack-btn" type="button" class="flex items-center justify-center gap-2 w-full py-4 bg-surface-container rounded-xl border hover:border-secondary/50 text-on-surface transition-all">
-                  <span class="material-symbols-outlined text-xl">campaign</span>
-                  <span id="ms-attack-label" class="text-[10px] font-bold text-on-surface-variant truncate max-w-[150px]">${data.attackSound || '선택 안함'}</span>
-               </button>
-               <input id="ms-attack-input" type="file" accept=".mp3,.ogg,.wav" class="hidden" />
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-tertiary uppercase tracking-widest pl-1">공격/울음 소리</label>
+              <div class="flex flex-col gap-2">
+                 <button id="ms-attack-btn" type="button" class="flex items-center justify-center gap-2 w-full py-4 bg-surface-container rounded-xl border hover:border-secondary/50 text-on-surface transition-all">
+                    <span class="material-symbols-outlined text-xl">campaign</span>
+                    <span id="ms-attack-label" class="text-[10px] font-bold text-on-surface-variant truncate max-w-[150px]">${data.attackSound || '선택 안함'}</span>
+                 </button>
+                 <input id="ms-attack-input" type="file" accept=".mp3,.ogg,.wav" class="hidden" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Action Buttons -->
-        <div class="flex gap-3 pt-4">
-          <button id="ms-save-btn" class="flex-1 py-4 bg-gradient-to-br from-primary to-primary-container text-white rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all font-headline font-bold text-sm">
-            데이터 동기화
-          </button>
-          <button id="ms-cancel-btn" class="px-6 py-4 bg-surface-container-low text-on-surface-variant rounded-2xl border border-white/50 hover:bg-white transition-all font-headline font-semibold text-sm">
-            취소
-          </button>
+          <!-- Action Buttons -->
+          <div class="flex gap-3 pt-4">
+            <button id="ms-save-btn" class="flex-1 py-4 bg-gradient-to-br from-primary to-primary-container text-white rounded-2xl shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all font-headline font-bold text-sm">
+              데이터 동기화
+            </button>
+            <button id="ms-cancel-btn" class="px-6 py-4 bg-surface-container-low text-on-surface-variant rounded-2xl border border-white/50 hover:bg-white transition-all font-headline font-semibold text-sm">
+              취소
+            </button>
+          </div>
         </div>
       </div>
     </div>
   `;
+
+  // 3D 미리보기 초기화
+  setTimeout(() => {
+    const canvas = document.getElementById('monster-preview-canvas') as HTMLCanvasElement;
+    if (!canvas) return;
+    if (preview) preview.destroy();
+    preview = new Preview3D(canvas);
+    if (data.glbFile) {
+      preview.loadMonster(data.glbFile, data.scale);
+    }
+  }, 100);
 
   // UI Event Handlers
   const speedInput = document.getElementById('ms-speed') as HTMLInputElement;
@@ -127,7 +154,9 @@ export const renderMonsterForm = (monster: MonsterData | null, onSaved: (savedMo
     document.getElementById('ms-speed-val')!.textContent = Number(speedInput.value).toFixed(1);
   });
   scaleInput.addEventListener('input', () => {
-    document.getElementById('ms-scale-val')!.textContent = Number(scaleInput.value).toFixed(2);
+    const val = Number(scaleInput.value);
+    document.getElementById('ms-scale-val')!.textContent = val.toFixed(2);
+    preview?.updateMonsterScale(val);
   });
 
 
@@ -147,6 +176,10 @@ export const renderMonsterForm = (monster: MonsterData | null, onSaved: (savedMo
         (data as any)[field] = filename;
         label.textContent = filename;
         label.classList.add('text-primary');
+
+        if (field === 'glbFile') {
+          preview?.loadMonster(filename, Number(scaleInput.value));
+        }
       } catch (e) {
         alert('Upload failed.');
         label.textContent = '실패: ' + file.name;

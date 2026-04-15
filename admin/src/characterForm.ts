@@ -15,7 +15,7 @@ const defaultChar = (): Omit<CharacterData, '_id'> => ({
   voiceId: 'default',
 });
 
-export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
+export const renderForm = (char: CharacterData | null, onSaved: (saved?: CharacterData) => void) => {
   const container = document.getElementById('form-container')!;
   const data = char ? { ...char } : defaultChar();
 
@@ -239,11 +239,12 @@ export const renderForm = (char: CharacterData | null, onSaved: () => void) => {
 
     try {
       if (char?._id) {
-        await updateCharacter(char._id, payload);
+        const saved = await updateCharacter(char._id, payload);
+        onSaved(saved);
       } else {
-        await createCharacter(payload);
+        const saved = await createCharacter(payload);
+        onSaved(saved);
       }
-      onSaved();
     } catch (err: any) {
       alert('저장 실패: ' + err.message);
     }

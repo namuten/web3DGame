@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { toThreeColor } from './utils';
 import type { MapData } from './mapApi';
 
@@ -233,8 +234,6 @@ const createVisorModel = (visorColor: number, visorType: string = 'normal') => {
   } else if (visorType === 'heart') {
     const heartGeoL = new THREE.ExtrudeGeometry(createHeartShape(0.25), extrudeSettings);
     heartGeoL.center();
-    // 하트 형태가 거꾸로 뒤집혀보일 수 있으므로 회전 처리 (테스트 결과 필요시)
-    // 원점에서 베지어 커브를 그릴 때 y값이 양수면 위, 음수면 아래입니다. 
     const lensL = new THREE.Mesh(heartGeoL, mat);
     lensL.position.set(-0.2, 0, 0);
     group.add(lensL);
@@ -343,7 +342,7 @@ export class Preview3D {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private canvas: HTMLCanvasElement;
-  private model: THREE.Group | null = null;
+  private model: THREE.Group | THREE.Object3D | null = null;
   private animId = 0;
 
   private isDragging = false;
@@ -367,9 +366,13 @@ export class Preview3D {
     if (this.isCharging && this.model) {
       this.isCharging = false;
       const strength = Math.min(this.chargeAmount, 1.0);
-      (this.model as any).triggerShootAnimation(strength);
+      if ((this.model as any).triggerShootAnimation) {
+        (this.model as any).triggerShootAnimation(strength);
+      }
       this.chargeAmount = 0;
-      (this.model as any).setChargeAmount(0);
+      if ((this.model as any).setChargeAmount) {
+        (this.model as any).setChargeAmount(0);
+      }
     }
   };
 
@@ -392,7 +395,7 @@ export class Preview3D {
     dir.position.set(5, 10, 5);
     this.scene.add(dir);
 
-    // 이벤트 핸들러를 멤버로 저장 (나중에 제거 가능)
+    // 이벤트 핸들러를 멤버로 저장
     this._onMouseMove = (e: MouseEvent) => {
       if (!this.isDragging) return;
       this.rotY += (e.clientX - this.prevMouseX) * 0.01;
@@ -450,6 +453,42 @@ export class Preview3D {
     this.scene.add(this.model);
   }
 
+  loadMonster(glbFile: string, scale: number = 1.0) {
+    if (this.model) { this.scene.remove(this.model); this.model = null; }
+    this.scene.background = new THREE.Color(0xFFB7B2);
+    this.scene.fog = null;
+
+    const loader = new GLTFLoader();
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://namuten.duckdns.org';
+    const url = `${apiUrl}/uploads/monsters/${glbFile}`;
+
+    loader.load(url, (gltf) => {
+      this.model = gltf.scene;
+      this.model.scale.set(scale, scale, scale);
+      
+      // Center the model roughly
+      const box = new THREE.Box3().setFromObject(this.model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      this.model.position.set(-center.x, -center.y + (size.y / 2), -center.z);
+      
+      this.scene.add(this.model);
+    }, undefined, (error) => {
+      console.error('Error loading monster GLB:', error);
+    });
+  }
+
+  updateMonsterScale(scale: number) {
+    if (this.model) {
+      this.model.scale.set(scale, scale, scale);
+      // Re-center if needed
+      const box = new THREE.Box3().setFromObject(this.model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      this.model.position.set(-center.x, -center.y + (size.y / 2), -center.z);
+    }
+  }
+
   loadMap(config: MapData) {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
 
@@ -461,9 +500,7 @@ export class Preview3D {
     }
 
     const group = new THREE.Group();
-
-    // 단순화된 바닥 (preview 용으로 스케일을 줄임)
-    const scale = 0.05; // 실제 코어 사이즈 400을 preview 용 20 정도로 축소
+    const scale = 0.05; 
     const previewFloorSize = config.floorSize * scale;
     const islandGeo = new THREE.BoxGeometry(previewFloorSize, 2, previewFloorSize, 10, 1, 10);
     const islandMat = new THREE.MeshStandardMaterial({ color: 0x5a9e3a, roughness: 1 });
@@ -471,7 +508,6 @@ export class Preview3D {
     island.position.y = -1;
     group.add(island);
 
-    // 샘플 장애물 배치
     let seedVal = config.seed;
     const seededRandom = () => {
       seedVal = (seedVal * 1664525 + 1013904223) & 0xffffffff;
@@ -480,7 +516,6 @@ export class Preview3D {
 
     const colors = config.obstacleColors.map(c => new THREE.Color(c).getHex());
     const previewPlayZone = config.playZone * scale;
-    // 너무 많으면 버벅이므로 최대 20개만 표시
     const obstacleCount = Math.min(20, config.obstacleCount);
 
     for (let i = 0; i < obstacleCount; i++) {
@@ -512,19 +547,18 @@ export class Preview3D {
 
     this.model = group;
     this.scene.add(this.model);
-
   }
 
   updateColor(type: 'body' | 'flower' | 'visor', hexColor: string, styleType: string = 'daisy') {
     if (!this.model) return;
     const c = toThreeColor(hexColor);
-    if (type === 'body') (this.model as any).setBodyColor(c);
-    if (type === 'flower') (this.model as any).setFlowerStyle(c, styleType);
-    if (type === 'visor') (this.model as any).setVisorStyle(c, styleType);
+    if (type === 'body' && (this.model as any).setBodyColor) (this.model as any).setBodyColor(c);
+    if (type === 'flower' && (this.model as any).setFlowerStyle) (this.model as any).setFlowerStyle(c, styleType);
+    if (type === 'visor' && (this.model as any).setVisorStyle) (this.model as any).setVisorStyle(c, styleType);
   }
 
   private _animate = () => {
-    const dt = 0.016; // approximated
+    const dt = 0.016;
     this.animId = requestAnimationFrame(this._animate);
     if (this.model) {
       if (!this.isDragging) this.rotY += 0.005;
@@ -537,7 +571,9 @@ export class Preview3D {
       if (this.isCharging) {
         this.chargeAmount += dt / this.MAX_CHARGE_TIME;
         if (this.chargeAmount > 1.0) this.chargeAmount = 1.0;
-        (this.model as any).setChargeAmount(this.chargeAmount);
+        if ((this.model as any).setChargeAmount) {
+          (this.model as any).setChargeAmount(this.chargeAmount);
+        }
       }
     }
     this.camera.position.set(0, 2, 5);

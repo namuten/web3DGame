@@ -343,6 +343,7 @@ export class Preview3D {
   private camera: THREE.PerspectiveCamera;
   private canvas: HTMLCanvasElement;
   private model: THREE.Group | THREE.Object3D | null = null;
+  private mixer: THREE.AnimationMixer | null = null;
   private animId = 0;
 
   private isDragging = false;
@@ -389,9 +390,9 @@ export class Preview3D {
     this.camera = new THREE.PerspectiveCamera(50, (canvas.clientWidth || 400) / (canvas.clientHeight || 400), 0.1, 100);
     this.camera.position.set(0, 2, 5);
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xb9f3fc, 1.0);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xdce2f3, 1.25);
     this.scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+    const dir = new THREE.DirectionalLight(0xffffff, 2.0);
     dir.position.set(5, 10, 5);
     this.scene.add(dir);
 
@@ -445,6 +446,8 @@ export class Preview3D {
 
   loadCharacter(bodyColor: string, flowerColor: string, visorColor: string, flowerType: string = 'daisy', visorType: string = 'normal') {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
+    if (this.mixer) { this.mixer.stopAllAction(); this.mixer = null; }
+    this.scene.children.filter(c => c.userData.isLabElement).forEach(c => this.scene.remove(c));
     this.scene.background = new THREE.Color(0xA2D2FF);
     this.scene.fog = null;
     this.model = createCharacterModel(toThreeColor(bodyColor), toThreeColor(flowerColor), flowerType, visorType);
@@ -455,8 +458,46 @@ export class Preview3D {
 
   loadMonster(glbFile: string, scale: number = 1.0) {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
-    this.scene.background = new THREE.Color(0xFFB7B2);
-    this.scene.fog = null;
+    if (this.mixer) { this.mixer.stopAllAction(); this.mixer = null; }
+    
+    // 기존에 추가된 연구실 장식(포디움 등) 제거
+    this.scene.children.filter(c => c.userData.isLabElement).forEach(c => this.scene.remove(c));
+
+    this.scene.background = new THREE.Color(0xe7eefe); // Brighter Archive (Light Blue-Gray)
+    this.scene.fog = new THREE.FogExp2(0xe7eefe, 0.08);
+
+    // 연구실 느낌의 포디움(Podium) 추가
+    const podiumGroup = new THREE.Group();
+    podiumGroup.userData.isLabElement = true;
+
+    // 바닥 원판 (더 밝고 반투명하게)
+    const floorGeo = new THREE.CircleGeometry(2.5, 32);
+    const floorMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff, 
+      transparent: true, 
+      opacity: 0.4,
+      side: THREE.DoubleSide 
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.01;
+    podiumGroup.add(floor);
+
+    // 글로잉 링 (가장자리 - 선명한 블루)
+    const ringGeo = new THREE.RingGeometry(2.45, 2.5, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x30628a, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    podiumGroup.add(ring);
+
+    // 하단 그리드 (밝은 배경에 맞춰 대비 조정)
+    const grid = new THREE.GridHelper(10, 20, 0x30628a, 0xdce2f3);
+    (grid.material as THREE.Material).transparent = true;
+    (grid.material as THREE.Material).opacity = 0.15;
+    grid.position.y = -0.02;
+    podiumGroup.add(grid);
+
+    this.scene.add(podiumGroup);
 
     const loader = new GLTFLoader();
     const apiUrl = import.meta.env.VITE_API_URL || 'https://namuten.duckdns.org';
@@ -464,6 +505,19 @@ export class Preview3D {
 
     loader.load(url, (gltf) => {
       this.model = gltf.scene;
+
+      // 불필요한 메쉬(하얀 박스, 충돌체 등) 숨기기
+      this.model.traverse((child) => {
+        const mesh = child as any;
+        if (mesh.isMesh) {
+          const name = (mesh.name || '').toLowerCase();
+          // SkinnedMesh가 아니면서 이름에 box, cube, collision 등이 포함된 경우 숨김
+          if (!mesh.isSkinnedMesh && (name.includes('box') || name.includes('cube') || name.includes('collision') || name.includes('collider'))) {
+            mesh.visible = false;
+          }
+        }
+      });
+
       this.model.scale.set(scale, scale, scale);
       
       // Center the model roughly
@@ -473,6 +527,13 @@ export class Preview3D {
       this.model.position.set(-center.x, -center.y + (size.y / 2), -center.z);
       
       this.scene.add(this.model);
+
+      // 애니메이션 설정
+      if (gltf.animations && gltf.animations.length > 0) {
+        this.mixer = new THREE.AnimationMixer(this.model);
+        const action = this.mixer.clipAction(gltf.animations[0]);
+        action.play();
+      }
     }, undefined, (error) => {
       console.error('Error loading monster GLB:', error);
     });
@@ -491,6 +552,8 @@ export class Preview3D {
 
   loadMap(config: MapData) {
     if (this.model) { this.scene.remove(this.model); this.model = null; }
+    if (this.mixer) { this.mixer.stopAllAction(); this.mixer = null; }
+    this.scene.children.filter(c => c.userData.isLabElement).forEach(c => this.scene.remove(c));
 
     this.scene.background = new THREE.Color(config.bgColor);
     if (config.fogDensity > 0) {
@@ -560,6 +623,9 @@ export class Preview3D {
   private _animate = () => {
     const dt = 0.016;
     this.animId = requestAnimationFrame(this._animate);
+    
+    if (this.mixer) this.mixer.update(dt);
+
     if (this.model) {
       if (!this.isDragging) this.rotY += 0.005;
       this.model.rotation.y = this.rotY;
@@ -587,6 +653,7 @@ export class Preview3D {
     window.removeEventListener('mouseup', this._onMouseUp);
     this.canvas.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keydown', this._onKeyDown);
+    if (this.mixer) this.mixer.stopAllAction();
     this.renderer.dispose();
   }
 }

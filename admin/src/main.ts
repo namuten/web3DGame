@@ -147,25 +147,32 @@ let selectedMonsterId: number | null = null;
 
 const loadMonsters = async () => {
   monsters = await fetchMonsters();
-  renderMonsterList(monsters, selectedMonsterId, onSelectMonster, onNewMonster, async (id) => {
-    try {
-      await deleteMonster(id);
-      if (selectedMonsterId === id) selectedMonsterId = null;
-      await loadMonsters();
-    } catch (e: any) {
-      console.error('[Admin] Delete failed:', e);
-      alert('삭제 실패: ' + e.message);
-    }
-  });
+  renderMonsterUI();
 
-  if (!selectedMonsterId && monsters.length > 0) {
+  // 초기 로드 시 하나도 선택 안 되어 있으면 첫 번째 몬스터 자동 선택
+  if (selectedMonsterId === null && monsters.length > 0) {
     onSelectMonster(monsters[0]);
+  }
+};
+
+const renderMonsterUI = () => {
+  renderMonsterList(monsters, selectedMonsterId, onSelectMonster, onNewMonster, onDeleteMonster);
+};
+
+const onDeleteMonster = async (id: number) => {
+  try {
+    await deleteMonster(id);
+    if (selectedMonsterId === id) selectedMonsterId = null;
+    await loadMonsters();
+  } catch (e: any) {
+    console.error('[Admin] Delete failed:', e);
+    alert('삭제 실패: ' + e.message);
   }
 };
 
 const onSelectMonster = (monster: MonsterData) => {
   selectedMonsterId = monster.id ?? null;
-  loadMonsters(); // renderMonsterList is called inside loadMonsters
+  renderMonsterUI();
   renderMonsterForm(monster, async (saved?: MonsterData) => {
     await loadMonsters();
     if (saved) onSelectMonster(saved);
@@ -173,8 +180,8 @@ const onSelectMonster = (monster: MonsterData) => {
 };
 
 const onNewMonster = () => {
-  selectedMonsterId = null;
-  loadMonsters();
+  selectedMonsterId = -1; // 신규 등록 시 리스트 하이라이트 해제 및 자동 선택 방지
+  renderMonsterUI();
   renderMonsterForm(null, async (saved?: MonsterData) => {
     await loadMonsters();
     if (saved) onSelectMonster(saved);

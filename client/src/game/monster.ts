@@ -46,6 +46,8 @@ class MonsterManager {
 
     private facingAngle = 0;
     private currentVisualY = 0;
+    private baseScale = 1.0; // 추가: 정규화된 기본 스케일 저장용
+    private baseYOffset = 0; // 추가: 바운딩 박스 기반 캐릭터 하단 Y 오프셋
 
 
 
@@ -84,7 +86,8 @@ class MonsterManager {
             
             // 기본 높이 기준(약 20유닛)으로 맞추기 위한 로컬 배율 계산
             const normalizeScale = maxDim > 0 ? 20.0 / maxDim : 1.0;
-            const finalScale = this.currentScale * normalizeScale;
+            this.baseScale = normalizeScale; // 계산된 스케일을 저장
+            const finalScale = this.currentScale * this.baseScale;
 
             this.monsterMesh = group;
             this.monsterMesh.scale.setScalar(finalScale);
@@ -93,7 +96,8 @@ class MonsterManager {
             const groundY = getGroundHeight(data.position.x, data.position.z);
             // 모델의 바닥점이 원점(0,0,0) 근처라고 가정하되, 바운딩 박스 하단을 정확히 맞춤
             const bottomY = box.min.y * finalScale;
-            this.monsterMesh.position.set(data.position.x, groundY - bottomY, data.position.z);
+            this.baseYOffset = -bottomY; // 하단을 맞추기 위한 오프셋 저장
+            this.monsterMesh.position.set(data.position.x, groundY + this.baseYOffset, data.position.z);
 
             scene.add(this.monsterMesh);
 
@@ -122,6 +126,10 @@ class MonsterManager {
             if (idleAction) {
                 console.log(`[MonsterClientLog] Playing initial animation: ${idleAction.getClip().name}`);
                 idleAction.play();
+            } else if (this.animations.size > 0) {
+                const firstAction = Array.from(this.animations.values())[0];
+                console.log(`[MonsterClientLog] Playing fallback initial animation: ${firstAction.getClip().name}`);
+                firstAction.play();
             }
 
             // 재질 수집 및 불필요한 메쉬(하얀 박스 등) 숨기기
@@ -152,7 +160,7 @@ class MonsterManager {
 
             this.currentPos.copy(group.position);
             this.targetPos.copy(group.position);
-            this.currentVisualY = groundY + 9.2;
+            this.currentVisualY = groundY + this.baseYOffset;
             this.targetScale = 1.0;
             this.currentScale = 1.0;
             this.facingAngle = 0;
@@ -227,7 +235,7 @@ class MonsterManager {
 
         // 3. 위치/스케일 보간
         this.currentPos.lerp(this.targetPos, 0.12);
-        const targetGroundY = getGroundHeight(this.currentPos.x, this.currentPos.z) + 9.2;
+        const targetGroundY = getGroundHeight(this.currentPos.x, this.currentPos.z) + this.baseYOffset;
         this.currentVisualY = THREE.MathUtils.lerp(this.currentVisualY, targetGroundY, 0.15); // 높이 보간 추가
         this.currentScale += (this.targetScale - this.currentScale) * 0.1;
 
@@ -254,7 +262,7 @@ class MonsterManager {
 
         // 6. 그룹 위치 및 균일 스케일 적용
         this.monsterMesh.position.copy(currentRealPos);
-        this.monsterMesh.scale.setScalar(this.currentScale * 12.0);
+        this.monsterMesh.scale.setScalar(this.currentScale * this.baseScale);
 
         // 7. 이동 방향으로 부드럽게 회전
         if (this.isMoving) {
@@ -282,6 +290,7 @@ class MonsterManager {
 
         // 현재 모델의 특이 케이스(클립이 하나뿐인 경우) 대응
         if (!action) action = this.animations.get('mixamo.com');
+        if (!action && this.animations.size > 0) action = Array.from(this.animations.values())[0];
 
         if (!action) return;
 

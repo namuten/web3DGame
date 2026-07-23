@@ -25,7 +25,9 @@ services:
 
   # ─── Certbot (Let's Encrypt 인증서 자동 갱신) ───
   certbot:
-    image: certbot/certbot
+    build:
+      context: ./nginx
+      dockerfile: certbot.Dockerfile
     container_name: certbot
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
